@@ -44,6 +44,7 @@ def select_direct_nodes(network: nx.Graph, M:int):
     return direct_nodes
 
 
+
 # For each i, sort all direct nodes j based on the shortest path distance
 def find_shortest_paths(i: str, direct_nodes: list, edges: dict, network: nx.Graph):
     shortest_paths = {}
@@ -63,7 +64,7 @@ def find_shortest_paths(i: str, direct_nodes: list, edges: dict, network: nx.Gra
     #print("direct_nodes {}".format(direct_nodes))
     #print("indirect node is {}".format(i))
     all_paths = [i[1][1:] for i in shortest_paths.values()]
-   
+    print('shortest_paths {}'.format(shortest_paths))
     print(all_paths)
     common_node_in_all = list(set.intersection(*map(set, all_paths)))
     print(common_node_in_all)
@@ -82,7 +83,18 @@ def find_shortest_paths(i: str, direct_nodes: list, edges: dict, network: nx.Gra
             #print("Selected path is {} and length is {} ".format(selected_path,path_length))
             selected_path = selected_path[path_length.index(min(path_length))]
             shortest_paths[first_key] = [min(path_length), selected_path]
-
+        else:
+            first_key = [k for k in shortest_paths if min(
+            i[0] for i in shortest_paths.values()) not in shortest_paths[k]][0]
+            alt_paths = list(nx.node_disjoint_paths(
+            network, s=first_key[0], t=first_key[1]))
+            selected_path = [
+            sublist for sublist in alt_paths if sublist != shortest_paths[first_key][1]]
+            path_length = [nx.path_weight(
+            network, i, weight="linkDist") for i in selected_path]
+            #print("Selected path is {} and length is {} ".format(selected_path,path_length))
+            selected_path = selected_path[path_length.index(min(path_length))]
+            shortest_paths[first_key] = [min(path_length), selected_path]
     for p in shortest_paths:
         path_edges = []
         for edge in list(zip(shortest_paths[p][1], shortest_paths[p][1][1:])):

@@ -7,9 +7,9 @@ import os
 def create_workbook(fname):
     if os.path.isfile(fname):
         book = openpyxl.load_workbook(fname)
-        book.remove(book["Links"])
-        book.remove(book["Demands"])
-        book.remove(book["Solution_Variables"])
+        sheet_names = book.sheetnames
+        for i in sheet_names:
+            del book[i]
     else:
         book = Workbook()
 
@@ -45,6 +45,7 @@ def write_demand_details(book, demands: dict):
     sheet['E1'] = "Destination"
     sheet['F1'] = "Paths"
     sheet['G1'] = "Links in path"
+    sheet['H1'] = "Node Costs"
     
     parent_row_num=2
     child_row_num=2
@@ -54,6 +55,7 @@ def write_demand_details(book, demands: dict):
         sheet['B' + str(parent_row_num)] = demands[d][0]
         sheet['c' + str(parent_row_num)] = d
         sheet['D' + str(parent_row_num)] = demands[d][1]
+        sheet['H' + str(parent_row_num)] = demands[d][3]
         for p in demands[d][2]:
             sheet['E' + str(child_row_num)] = p[1]
             sheet['F' + str(child_row_num)] = p[0]

@@ -175,15 +175,6 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes):
     #                                         keys=len(varnames_link_inpath), name=varnames_link_inpath)
 
     ###########################################################################################################################
-
-    #                                        Variable  - M
-    # Integer Variable M
-    
-
-    ###########################################################################################################################
-    
-    var_M=optimizer.integer_var(lb=2, ub=len(network.nodes), name='M')
-
     #            Constraint of equation 1: Capacity constraint
     #
     #                       for all  links e ∈ E:
@@ -344,37 +335,42 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes):
             link_var.append(sum_link_var)
 
     capacity_costs=sum(link_var)+node_costs
-    optimizer.add_kpi(capacity_costs)
+   # optimizer.add_kpi(capacity_costs, "Total Costs")
     
-    optimizer.minimize(sum(link_var)+node_costs)
+    optimizer.minimize(capacity_costs)
 
-    return optimizer, var_link_capacity, var_xdp, demands_dict
+    return optimizer, var_link_capacity, var_xdp, demands_dict,node_costs
 
 
 def run_optimiser(network, links, num_epochs,M):
     min_objective_value = 10000.00
     obj_per_epoch={}
     min_obj_per_epoch={}
-    
+    total_stats=[]
+    control_node_costs=M*len(network.nodes)*2
     for epoch in range(num_epochs):
         direct_nodes = cplex_input.select_direct_nodes(network=network,M=M)
         indirect_nodes = list(
             set(list(network.nodes)).difference(direct_nodes))
 
-        optimizer, var_link_capacity, var_xdp,demands_dict= model_optimizer(
+        optimizer, var_link_capacity, var_xdp,demands_dict,node_costs= model_optimizer(
             network, links, direct_nodes, indirect_nodes)
         sol = optimizer.solve(log_output=True)
         if sol.solve_status.name=='OPTIMAL_SOLUTION':            
-            current_objective_value = sol.get_objective_value()
-            
+            current_objective_value = sol.get_objective_value() + control_node_costs
+      
             print("Solution status is {}".format(optimizer.solve_details.status))
             print("Objective value for the solution is {}".format(current_objective_value))
             print("Number of variables {}". format(sol.number_of_var_values))
             if min_objective_value > current_objective_value:
                 min_objective_value=current_objective_value
+
                 variables_in_sol=sol.as_df()
+                df=variables_in_sol[variables_in_sol['name'].str.match('ye')]
+                print(df)
                     # Write all input to excel
-                fname = r'/Model_Stats.xlsx'
+                capacity_variables=df['value'].tolist()
+                fname = r'/Model_Stats'+str(M)+'.xlsx'
                 book = wb.create_workbook(BASE_DIR+fname)
                 print("Minimum Objective Value obtained {}".format(min_objective_value))
                 book = wb.write_link_details(book, links)
@@ -382,16 +378,21 @@ def run_optimiser(network, links, num_epochs,M):
                 book = wb.write_solution(book,variables_in_sol)
                 wb.save_book(book, BASE_DIR+fname)
             obj_per_epoch[epoch]=current_objective_value
-            min_obj_per_epoch[epoch] = min_objective_value
-    return obj_per_epoch, min_objective_value, min_obj_per_epoch
+            min_obj_per_epoch[epoch] = [min_objective_value]
+    total_stats.extend((min_objective_value,control_node_costs,sum(capacity_variables)+node_costs))
+    return obj_per_epoch, min_objective_value, min_obj_per_epoch,total_stats
 
 
 
-M = round(len(network.nodes)*0.7)
+M = round(len(network.nodes)*.90)
+
+obj_per_epoch, min_objective_value, min_obj_per_epoch,total_stats = run_optimiser(network, links,100,2)
+
+print('total_stats {}'.format(total_stats))
 """ x1 = []
 y1 = []
 y2=[]
-obj_per_epoch, min_objective_value,min_obj_per_epoch = run_optimiser(network, links,200,M)
+obj_per_epoch, min_objective_value, min_obj_per_epoch,total_stats = run_optimiser(network, links,200,M)
 print(min_obj_per_epoch)
 for obj in min_obj_per_epoch:
     x1.append(obj+1)
@@ -412,14 +413,65 @@ plot.ylabel('Objective Value', fontsize=16)
 plot.legend(loc='upper right', fancybox=True, fontsize=12)
 plot.tight_layout()
 plot.savefig("Minimumobjective1.png", format='png', pad_inches=0) """
-obj_episode={}
-min_obj_per_M={}
-while(M>=2):
-    obj_per_epoch, min_objective_value,min_obj_per_epoch = run_optimiser(network, links,3000,M)
-    obj_episode[M] =[obj_per_epoch]
-    min_obj_per_M[M]= min_objective_value
-    M=M-1
-print(min_obj_per_M)
+# obj_episode={}
+# min_obj_per_M={}
+# while(M>=2):
+#     obj_per_epoch, min_objective_value,min_obj_per_epoch,total_stats = run_optimiser(network, links,100,M)
+#     obj_episode[M] =[obj_per_epoch]
+#     min_obj_per_M[M]= total_stats
+#     M=M-1
+# print(min_obj_per_M)
+# x1=[]
+# y1=[]
+# node_costs=[]
+# capacity_costs=[]
+# for m in min_obj_per_M:
+#     x1.append(m)
+#     y1. append(min_obj_per_M[m][0])
+#     node_costs.append(min_obj_per_M[m][1])
+#     capacity_costs.append(min_obj_per_M[m][2])
+
+# x1.reverse()
+# y1.reverse()
+# node_costs.reverse()
+# capacity_costs.reverse()
+# print(node_costs)
+# print(capacity_costs)
+# plot.figure(figsize=(9, 4), dpi=80)
+# plot.plot(x1,y1)
+# plot.xticks(np.arange(1,9))
+# plot.yticks(np.arange(0, 250,30))
+# plot.xlabel("Number of Control Nodes", fontsize=18)
+# plot.ylabel('Objective Value', fontsize=16)
+# plot.tight_layout()
+# plot.savefig(BASE_DIR+"/DesignObjective.png", format='png', pad_inches=0)
+# plot.clf()
+# fig, ax1 = plot.subplots(figsize=(10, 5.3))
+#     # figsize=(40, 30)
+# color = 'tab:blue'
+# ax1.set_xlabel('Number of Control Nodes', fontsize=20)
+# ax1.set_ylabel('Capacity Costs', color=color, fontsize=20)
+# ax1.plot(x1, capacity_costs, color=color,linewidth=0.75)
+# ax1.tick_params(axis='y', labelcolor=color)
+
+# ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+# color = 'tab:orange'
+
+# ax2.set_ylabel('Control Node Costs', color=color, fontsize=20)  # we already handled the x-label with ax1
+# ax2.plot(x1, node_costs, color=color, linewidth=0.75)
+# ax2.tick_params(axis='y', labelcolor=color)
+
+# #  ax1.set_xlim(0, 51)
+# ax1.set_ylim(0,150)
+# ax2.set_ylim(0,150)
+# ax1.yaxis.labelpad = 0
+# ax2.yaxis.labelpad = 0
+
+# plot.tight_layout()
+# plot.savefig(BASE_DIR+'/Cost_Comaprison' + ".png")
+# # bbox_inches='tight'
+# plot.clf()
 
 
 
