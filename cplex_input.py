@@ -2,9 +2,24 @@ import networkx as nx
 import json
 import numpy as np
 import random
-
+import pandas as pd
+from itertools import combinations
 import matplotlib.pyplot as plt
 
+
+def create_network_from_excel(excel_file):
+    df_nodes = pd.read_excel(excel_file, sheet_name='Nodes')
+    df_links = pd.read_excel(excel_file, sheet_name='Links')
+    graph = nx.Graph()
+    for n in range(0, len(df_nodes)):
+        graph.add_node(df_nodes['Name'][n], lon=df_nodes['Longitude'][n], lat=df_nodes['Latitude'][n], pos=(
+            df_nodes['Longitude'][n], df_nodes['Latitude'][n]))
+    for e in range(0, len(df_links)):
+        graph.add_edge(df_links['Node-A'][e], df_links['Node-Z'][e], linkDist=round(df_links['Length'][e],3))
+    # pos= nx.spring_layout(graph)
+    # nx.draw(graph, pos, with_labels=True,node_color='skyblue', node_size=220, font_size=8, font_weight="bold")
+    # plt.show()
+    return graph
 
 def create_network(node_file, link_file):
     with open(node_file) as nF:
@@ -30,149 +45,63 @@ def create_network(node_file, link_file):
     return graph
 
 
-# Random selection of M direct nodes that are also non-adjacent
-def select_direct_nodes(network: nx.Graph, M:int):
-    
-    direct_nodes=np.random.choice(network.nodes,M,replace=False).tolist()
-    # direct_nodes = []
-    
-    # while len(direct_nodes) != M:
-    #     potential_node = random.choice(list(network.nodes))
-    #     neighbours = [n for n in network.neighbors(potential_node)]
-    #     if (not any(item in neighbours for item in direct_nodes)) & (potential_node not in direct_nodes):
-    #         direct_nodes.append(potential_node)
-    return direct_nodes
+# Random selection of M direct nodes and O indirect nodes
+def select_nodes(network: nx.Graph, M: int):
+    d_nodes = np.random.choice(network.nodes, M, replace=False).tolist()
+    ind_nodes = list(set(list(network.nodes)).difference(d_nodes))
+    return d_nodes, ind_nodes
+
+# Select all possible combinations of direct nodes
 
 
+def select_node_combinations(network: nx.Graph, M: int):
+    network_nodes = list(network.nodes)
+    combos = list(combinations(network_nodes, M))
+    return combos
 
-# For each i, sort all direct nodes j based on the shortest path distance
-def find_shortest_paths(i: str, direct_nodes: list, edges: dict, network: nx.Graph):
-    shortest_paths = {}
+
+# For each i, find a list of node disjoint paths to all direct nodes j
+def find_potential_paths(i: str, direct_nodes: list, edges: dict, network: nx.Graph):
+    potential_paths = {}
+    potential_path_edges = {}
+    path_lengths = {}
+    count = 1
     for j in direct_nodes:
+        paths = list(nx.node_disjoint_paths(G=network, s=i, t=j, cutoff=5))
+        for p in paths:
+            path_edges = []
+            potential_paths['p'+str(count)] = p
+            pairs = [p[i: i + 2] for i in range(len(p)-1)]
+            p_length = [network[i[0]][i[1]]['linkDist'] for i in pairs]
+            path_lengths['p' + str(count)] = sum(p_length)
+            for pair in pairs:
+                path_edges.append(edges[(pair[0], pair[1])][0] if (
+                    pair[0], pair[1]) in edges.keys() else edges[(pair[1], pair[0])][0])
+            potential_path_edges['p'+str(count)] = path_edges
+            count += 1
+        del path_edges
+        del pairs
 
-        shortest_paths[(i, j)] = [nx.shortest_path_length(
-            network, source=i, target=j, weight='linkDist')]
-        paths = nx.shortest_path(
-            network, source=i, target=j, weight='linkDist')
-        shortest_paths[(i, j)].append(paths)
-
-    # Check if shortest path uses an edge that is common to all paths connecting node i to all other direct nodes.
-    # In such a case, while checking the link disjoint paths, only one path will be returned
-    # However the path diversity constraint will be violated with no. of paths < = 1.
-    # Hence in the below section, we check is there is a common node in all paths.
-    # If yes, then we try to select the second shortest path for the shortest path
-    #print("direct_nodes {}".format(direct_nodes))
-    #print("indirect node is {}".format(i))
-    all_paths = [i[1][1:] for i in shortest_paths.values()]
-    print('shortest_paths {}'.format(shortest_paths))
-    print(all_paths)
-    common_node_in_all = list(set.intersection(*map(set, all_paths)))
-    print(common_node_in_all)
-    if len(common_node_in_all) > 0:
-        first_key = [k for k in shortest_paths if min(
-            i[0] for i in shortest_paths.values()) in shortest_paths[k]][0]
-        #print("first_key {}".format(first_key))
-        alt_paths = list(nx.node_disjoint_paths(
-            network, s=first_key[0], t=first_key[1]))
-        #print("alt_paths {}".format(alt_paths))
-        selected_path = [
-            sublist for sublist in alt_paths if sublist != shortest_paths[first_key][1]]
-        if len(selected_path) >0:
-            path_length = [nx.path_weight(
-            network, i, weight="linkDist") for i in selected_path]
-            #print("Selected path is {} and length is {} ".format(selected_path,path_length))
-            selected_path = selected_path[path_length.index(min(path_length))]
-            shortest_paths[first_key] = [min(path_length), selected_path]
-        else:
-            first_key = [k for k in shortest_paths if min(
-            i[0] for i in shortest_paths.values()) not in shortest_paths[k]][0]
-            alt_paths = list(nx.node_disjoint_paths(
-            network, s=first_key[0], t=first_key[1]))
-            selected_path = [
-            sublist for sublist in alt_paths if sublist != shortest_paths[first_key][1]]
-            path_length = [nx.path_weight(
-            network, i, weight="linkDist") for i in selected_path]
-            #print("Selected path is {} and length is {} ".format(selected_path,path_length))
-            selected_path = selected_path[path_length.index(min(path_length))]
-            shortest_paths[first_key] = [min(path_length), selected_path]
-    for p in shortest_paths:
-        path_edges = []
-        for edge in list(zip(shortest_paths[p][1], shortest_paths[p][1][1:])):
-            path_edges.append(edges[edge][0]) if edge in edges.keys(
-            ) else path_edges.append(edges[tuple(reversed(edge))][0])
-        shortest_paths[p][1] = path_edges
-
-    sorted_paths = sorted(shortest_paths.items(), key=lambda x: x[1][0])
-    shortest_paths = {k: v for k, v in sorted_paths}
-
-    return shortest_paths
-
-def find_tuple_byValue(element_list:list, item_to_compare:list):
-    item_found = [ x[1] for x, y in element_list if y[1]  == item_to_compare ]
-    if len(item_found)>0:
-        return item_found[0]
-    else:
-        return None
-
-def get_disjoint_paths(shortest_paths: list, j: int):
-    #print("shortest_paths {}".format(shortest_paths))
-    s_paths = [i[1][1] for i in shortest_paths]
-    print(s_paths)
-    disjoint_paths = {}
-    node_unit_cost=0
-    while (len(s_paths)) > 0:
-        if len(s_paths) == 1:
-            disjoint_paths[('p'+str(j),find_tuple_byValue(shortest_paths,s_paths[0]))] = s_paths[0]
-            node_unit_cost = len(s_paths[0]) + 1+node_unit_cost
-            s_paths.pop(0)
-        else:
-            for p in s_paths[1:]:
-                if any(check in s_paths[0] for check in p):
-                    s_paths.remove(p)
-            disjoint_paths[('p'+str(j),find_tuple_byValue(shortest_paths,s_paths[0]))] = s_paths[0]
-            node_unit_cost = len(s_paths[0]) + 1 +node_unit_cost
-            s_paths.pop(0)
-        j += 1
-
-    return disjoint_paths, j, node_unit_cost
+    return potential_paths, potential_path_edges, path_lengths
 
 
-def define_control_demands(nodes: list, direct_nodes: list, edges: dict, network: nx.Graph):
-    # node cost and path names can be further included in this dictionary
-    # set_demands[nodei] = {di, h(d), P(di), Cost(nodei)}
-    set_demands = {}
-    i = 0
-    j = 0
+def define_control_demands(nodes: list, direct_nodes: list, edges: dict, network: nx.Graph, scale_factor: int):
+    demand_volume = {}
+    demand_paths = {}
+    demand_path_edges = {}
+    demand_path_lengths = {}
     for n in nodes:
-        set_demands[n] = ['d'+str(i), 4]
-        shortest_paths = list(find_shortest_paths(
-            str(n), direct_nodes, edges, network).items())
-        #print("shortest_paths {}".format(shortest_paths))
-        disjoint_paths, j,node_unit_cost = get_disjoint_paths(shortest_paths, j=j)
-        print("disjoint_paths {}".format(disjoint_paths))
-        set_demands[n].append(disjoint_paths)
-        set_demands[n].append(node_unit_cost*2)
-        i += 1
-    del(shortest_paths)
-    return set_demands
+        #demand_volume['d_'+n] = (1000/600)*((0.03+0.083) + (0.041+0.031) + (0.22+0.46 + 0.30+0.28))*network.degree(n)*scale_factor
+        demand_volume['d_'+n] = (1.9+1.2 + 0.86+0.745) * \
+            network.degree(n)*scale_factor
+        potential_paths, potential_path_edges, path_lengths = find_potential_paths(
+            n, direct_nodes, edges, network)
 
+        demand_paths['d_'+n] = potential_paths
+        demand_path_edges['d_'+n] = potential_path_edges
+        demand_path_lengths['d_'+n] = path_lengths
 
-def create_input(node_file, edge_file):
-    network = create_network(node_file, edge_file)
-
-    direct_nodes = select_direct_nodes(network=network)
-    indirect_nodes = set(list(network.nodes)).difference(direct_nodes)
-
-    set_links = {}
-    i = 1
-    for e in network.edges:
-        set_links[e] = ['e'+str(i), 1]
-        i += 1
-
-    set_demands = define_control_demands(
-        indirect_nodes, direct_nodes, set_links, network)
-
-    return direct_nodes, indirect_nodes, set_links, set_demands
+    return demand_volume, demand_paths, demand_path_edges, demand_path_lengths
 
 
 # pos= nx.spring_layout(graph)
