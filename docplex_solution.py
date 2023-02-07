@@ -11,15 +11,18 @@ import math
 file_path = os.path.abspath(__file__)
 BASE_DIR = os.path.dirname(file_path)
 
-
+excel_file = BASE_DIR + '/Topologies/Coronet60.xlsx'
 node_file = BASE_DIR + '/example_nodes.json'
 edge_file = BASE_DIR + "/example_links.json"
-network = cplex_input.create_network(node_file, edge_file)
+#network = cplex_input.create_network(node_file, edge_file)
+
+network=cplex_input.create_network_from_excel(excel_file)
 links = {}
 i = 0
 for e in network.edges:
     links[e] = ['e'+str(i), 1]
     i += 1
+    
 
 DIVERSITY_FACTOR = 2
 
@@ -188,12 +191,13 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
 
 def run_optimiser(network, links, scale_factor):
 
-    obj_per_epoch = {}
+
     min_obj_per_M = {}
     kpi1_perf = {}
     total_episodes = len(network.nodes)
+    print(total_episodes)
     for m in range(2, total_episodes+1):
-        control_node_costs = 6345*m
+        control_node_costs = 3000*m
         if m == total_episodes:
             min_obj_per_M[m] = control_node_costs
         else:
@@ -232,7 +236,7 @@ def run_optimiser(network, links, scale_factor):
                             book, demand_volume, demand_paths, demand_path_edges, demand_path_lengths)
                         book = wb.write_solution(book, variables_in_sol)
                         wb.save_book(book, BASE_DIR+fname)
-                    obj_per_epoch[combo] = current_objective_value
+
                 min_obj_per_M[m] = min_objective_value
     return min_obj_per_M, kpi1_perf
 
@@ -252,7 +256,7 @@ def plot_min_obj_value(f_name):
     # plot.yscale('log')
     #plot.yticks(np.arange(2000, 4000, 250))
     plot.xlabel("Number of Nodes", fontsize=18)
-    plot.ylabel('Objective Value', fontsize=16)
+    plot.ylabel('Network Costs', fontsize=16)
 
     plot.tight_layout()
     plot.savefig(BASE_DIR+"/Minimumobjective.png", format='png', pad_inches=0)
@@ -314,7 +318,7 @@ def run_sol_with_scale():
     img_name1 = BASE_DIR+"/Minimumobjective_Scaled.png"
     img_name2=BASE_DIR+"/LinksUtilization_Scaled.png"
     if os.path.exists(obj_record):
-        plot_scaled_obj_val(obj_record,'Obj_Values','Objective Value', img_name1)
+        plot_scaled_obj_val(obj_record,'Obj_Values','Log(Network Costs)', img_name1)
         plot_scaled_obj_val(obj_record,'Link_Utils','Link_Utilization (Y_e)', img_name2)
 
     else:
@@ -331,14 +335,15 @@ def run_sol_with_scale():
         book = wb.write_objective_values_scaled(book, min_obj_scaled, "Obj_Values")
         book = wb.write_objective_values_scaled(book, kpi_perf_scaled, "Link_Utils")
         wb.save_book(book, obj_record)
-        plot_scaled_obj_val(obj_record,'Obj_Values','Objective Value', img_name1)
+        plot_scaled_obj_val(obj_record,'Obj_Values','Log(Network Costs)', img_name1)
         plot_scaled_obj_val(obj_record,'Link_Utils','Link_Utilization (Y_e)', img_name2)
 
 
-run_sol_single()
-run_sol_with_scale()
+# run_sol_single()
+# run_sol_with_scale()
 
-
+min_obj_per_M, kpi1_perf = run_optimiser(network, links, 1)
+print(min_obj_per_M)
 # sol = optimizer.solve(log_output=True)
 # variables_in_sol = sol.as_df()
 # fname = r'/Model_Stats_new.xlsx'

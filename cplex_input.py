@@ -2,9 +2,24 @@ import networkx as nx
 import json
 import numpy as np
 import random
+import pandas as pd
 from itertools import combinations
 import matplotlib.pyplot as plt
 
+
+def create_network_from_excel(excel_file):
+    df_nodes = pd.read_excel(excel_file, sheet_name='Nodes')
+    df_links = pd.read_excel(excel_file, sheet_name='Links')
+    graph = nx.Graph()
+    for n in range(0, len(df_nodes)):
+        graph.add_node(df_nodes['Name'][n], lon=df_nodes['Longitude'][n], lat=df_nodes['Latitude'][n], pos=(
+            df_nodes['Longitude'][n], df_nodes['Latitude'][n]))
+    for e in range(0, len(df_links)):
+        graph.add_edge(df_links['Node-A'][e], df_links['Node-Z'][e], linkDist=round(df_links['Length'][e],3))
+    # pos= nx.spring_layout(graph)
+    # nx.draw(graph, pos, with_labels=True,node_color='skyblue', node_size=220, font_size=8, font_weight="bold")
+    # plt.show()
+    return graph
 
 def create_network(node_file, link_file):
     with open(node_file) as nF:
@@ -31,58 +46,62 @@ def create_network(node_file, link_file):
 
 
 # Random selection of M direct nodes and O indirect nodes
-def select_nodes(network: nx.Graph, M:int):
-    d_nodes= np.random.choice(network.nodes,M,replace=False).tolist()
-    ind_nodes=list(set(list(network.nodes)).difference(d_nodes))
+def select_nodes(network: nx.Graph, M: int):
+    d_nodes = np.random.choice(network.nodes, M, replace=False).tolist()
+    ind_nodes = list(set(list(network.nodes)).difference(d_nodes))
     return d_nodes, ind_nodes
 
 # Select all possible combinations of direct nodes
-def select_node_combinations(network:nx.Graph, M:int):
-    network_nodes=list(network.nodes)
+
+
+def select_node_combinations(network: nx.Graph, M: int):
+    network_nodes = list(network.nodes)
     combos = list(combinations(network_nodes, M))
     return combos
 
-    
-# For each i, find a list of node disjoint paths to all direct nodes j 
+
+# For each i, find a list of node disjoint paths to all direct nodes j
 def find_potential_paths(i: str, direct_nodes: list, edges: dict, network: nx.Graph):
-    potential_paths={}
-    potential_path_edges={}
-    path_lengths={}
-    count=1
+    potential_paths = {}
+    potential_path_edges = {}
+    path_lengths = {}
+    count = 1
     for j in direct_nodes:
-        paths=list(nx.node_disjoint_paths(G=network,s=i,t=j,cutoff=5))
+        paths = list(nx.node_disjoint_paths(G=network, s=i, t=j, cutoff=5))
         for p in paths:
             path_edges = []
-            potential_paths['p'+str(count)]=p
+            potential_paths['p'+str(count)] = p
             pairs = [p[i: i + 2] for i in range(len(p)-1)]
-            p_length=[network[i[0]][i[1]]['linkDist'] for i in pairs]
+            p_length = [network[i[0]][i[1]]['linkDist'] for i in pairs]
             path_lengths['p' + str(count)] = sum(p_length)
             for pair in pairs:
-                path_edges.append(edges[(pair[0],pair[1])][0] if (pair[0],pair[1]) in edges.keys() else edges[(pair[1],pair[0])][0] )
+                path_edges.append(edges[(pair[0], pair[1])][0] if (
+                    pair[0], pair[1]) in edges.keys() else edges[(pair[1], pair[0])][0])
             potential_path_edges['p'+str(count)] = path_edges
-            count+=1
+            count += 1
         del path_edges
         del pairs
-        
+
     return potential_paths, potential_path_edges, path_lengths
 
-def define_control_demands(nodes: list, direct_nodes: list, edges: dict, network: nx.Graph, scale_factor:int):
-    demand_volume= {}
-    demand_paths={}
-    demand_path_edges={}
-    demand_path_lengths={}
+
+def define_control_demands(nodes: list, direct_nodes: list, edges: dict, network: nx.Graph, scale_factor: int):
+    demand_volume = {}
+    demand_paths = {}
+    demand_path_edges = {}
+    demand_path_lengths = {}
     for n in nodes:
         #demand_volume['d_'+n] = (1000/600)*((0.03+0.083) + (0.041+0.031) + (0.22+0.46 + 0.30+0.28))*network.degree(n)*scale_factor
-        demand_volume['d_'+n] = (1.9+1.2 +0.86+0.745)*network.degree(n)*scale_factor
-        potential_paths, potential_path_edges, path_lengths = find_potential_paths(n, direct_nodes, edges, network)
+        demand_volume['d_'+n] = (1.9+1.2 + 0.86+0.745) * \
+            network.degree(n)*scale_factor
+        potential_paths, potential_path_edges, path_lengths = find_potential_paths(
+            n, direct_nodes, edges, network)
 
         demand_paths['d_'+n] = potential_paths
-        demand_path_edges['d_'+n]=potential_path_edges
+        demand_path_edges['d_'+n] = potential_path_edges
         demand_path_lengths['d_'+n] = path_lengths
 
     return demand_volume, demand_paths, demand_path_edges, demand_path_lengths
-        
-
 
 
 # pos= nx.spring_layout(graph)
