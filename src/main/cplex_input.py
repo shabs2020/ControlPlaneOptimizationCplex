@@ -56,7 +56,10 @@ def select_nodes(network: nx.Graph, M: int):
 
 def select_node_combinations(network: nx.Graph, M: int):
     network_nodes = list(network.nodes)
-    combos = list(combinations(network_nodes, M))
+    combos=[]
+    for selection in combinations(network_nodes, M):
+        combos.append(selection)
+    
     return combos
 
 

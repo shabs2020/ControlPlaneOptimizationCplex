@@ -7,13 +7,15 @@ import os
 import write_workbook as wb
 import matplotlib.pyplot as plot
 import math
+from itertools import combinations
+import faulthandler; faulthandler.enable()
 
 file_path = os.path.abspath(__file__)
 BASE_DIR = os.path.dirname(file_path)
 
 excel_file = BASE_DIR + '/Topologies/Coronet60.xlsx'
-node_file = BASE_DIR + '/example_nodes.json'
-edge_file = BASE_DIR + "/example_links.json"
+node_file = BASE_DIR + '/Topologies/example_nodes.json'
+edge_file = BASE_DIR + "/Topologies/example_links.json"
 #network = cplex_input.create_network(node_file, edge_file)
 
 network=cplex_input.create_network_from_excel(excel_file)
@@ -191,21 +193,22 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
 
 def run_optimiser(network, links, scale_factor):
 
-
+    network_nodes = list(network.nodes)
     min_obj_per_M = {}
     kpi1_perf = {}
     total_episodes = len(network.nodes)
     print(total_episodes)
     for m in range(2, total_episodes+1):
         control_node_costs = 3000*m
+        
         if m == total_episodes:
             min_obj_per_M[m] = control_node_costs
         else:
-            d_node_combos = cplex_input.select_node_combinations(
-                network=network, M=m)
             min_objective_value = 99999990.00
-            for combo in d_node_combos:
-                d_nodes = list(combo)
+            for d_node_combos in combinations(network_nodes, m):
+                
+                
+                d_nodes = list(d_node_combos)
                 ind_nodes = list(set(list(network.nodes)).difference(d_nodes))
                # Call Optimizer
                 optimizer, demand_volume, demand_paths, demand_path_edges, demand_path_lengths = model_optimizer(
@@ -339,11 +342,11 @@ def run_sol_with_scale():
         plot_scaled_obj_val(obj_record,'Link_Utils','Link_Utilization (Y_e)', img_name2)
 
 
-# run_sol_single()
+run_sol_single()
 # run_sol_with_scale()
 
-min_obj_per_M, kpi1_perf = run_optimiser(network, links, 1)
-print(min_obj_per_M)
+# min_obj_per_M, kpi1_perf = run_optimiser(network, links, 1)
+# print(min_obj_per_M)
 # sol = optimizer.solve(log_output=True)
 # variables_in_sol = sol.as_df()
 # fname = r'/Model_Stats_new.xlsx'
