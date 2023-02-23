@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import cplex_input
 
 from docplex.mp.model import Model
@@ -9,24 +10,34 @@ import matplotlib.pyplot as plot
 import math
 from itertools import combinations
 import faulthandler; faulthandler.enable()
+import sys
+from datetime import datetime
+import logging
 
-file_path = os.path.abspath(__file__)
+file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
+BASE_DIR = os.path.dirname(file_path)
+logging.basicConfig(filename=BASE_DIR+'/Log/docplexlog.txt', level=logging.INFO)
+""" file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
 
-excel_file = BASE_DIR + '/Topologies/Coronet60.xlsx'
+# excel_file = BASE_DIR + '/Topologies/Coronet60.xlsx'
+# node_file = BASE_DIR + '/Topologies/Nodes_Germany_17.json'
+# edge_file = BASE_DIR + "/Topologies/Links_Germany_17.json"
+
 node_file = BASE_DIR + '/Topologies/example_nodes.json'
 edge_file = BASE_DIR + "/Topologies/example_links.json"
-#network = cplex_input.create_network(node_file, edge_file)
+network = cplex_input.create_network(node_file, edge_file)
 
-network=cplex_input.create_network_from_excel(excel_file)
+#network=cplex_input.create_network_from_excel(excel_file)
 links = {}
 i = 0
 for e in network.edges:
     links[e] = ['e'+str(i), 1]
     i += 1
-    
 
-DIVERSITY_FACTOR = 2
+cplex_input.draw_topology(network, BASE_DIR + "/Figures/Germany_17") 
+
+DIVERSITY_FACTOR = 2 """
 
 
 def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_factor):
@@ -60,6 +71,7 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
         indirect_nodes, direct_nodes, links, network, volume_scale_factor)
 
     set_links = [l[0] for l in links.values()]
+    set_link_costs = [l[1] for l in links.values()]
     set_demands = [d for d in demand_volume]
     ###########################################################################################################################
 
@@ -140,6 +152,7 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
     # hence part of code is used to deifne the objective kpi
     obj_kpi1 = []
     for e in set_links:
+        
         for d in set_demands:
             constraint_name = 'c2_' + e + '_'+d
             for p in demand_path_edges[d]:
@@ -149,10 +162,11 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
                         for p in demand_path_edges[d]]
             prod_vars_paras = np.multiply(paras, vars)
             obj_kpi1.extend(np.array(prod_vars_paras) *
-                            (demand_volume[d]/DIVERSITY_FACTOR))
-            # print(prod_vars_paras)
+                            (demand_volume[d]/DIVERSITY_FACTOR)*set_link_costs[set_links.index(e)])
+            #print("length of kp1 {}".format(len(obj_kpi1)))
             optimizer.add_constraint(
                 ct=sum(prod_vars_paras) <= 1, ctname=constraint_name)
+        #print(obj_kpi1)
 
     ###########################################################################################################################
     #            Constraint of equation 2: Path Diversity constraint
@@ -198,7 +212,7 @@ def run_optimiser(network, links, scale_factor):
     kpi1_perf = {}
     total_episodes = len(network.nodes)
     print(total_episodes)
-    for m in range(2, total_episodes+1):
+    for m in range(2,total_episodes+1):
         control_node_costs = 3000*m
         
         if m == total_episodes:
@@ -216,7 +230,12 @@ def run_optimiser(network, links, scale_factor):
                 sol = optimizer.solve(log_output=True)
                 if optimizer.solve_details.status == 'integer optimal solution':
                     current_objective_value = sol.get_objective_value() + control_node_costs
-
+                    logging.info("Solution status is {}".format(
+                        optimizer.solve_details.status))
+                    logging.info("Objective value for the solution is {}".format(
+                        current_objective_value))
+                    logging.info("Number of variables {}". format(
+                        sol.number_of_var_values))
                     print("Solution status is {}".format(
                         optimizer.solve_details.status))
                     print("Objective value for the solution is {}".format(
@@ -229,10 +248,10 @@ def run_optimiser(network, links, scale_factor):
                         variables_in_sol = sol.as_df()
                         df = variables_in_sol[variables_in_sol['name'].str.match(
                             'ye')]
-                        print(df)
+                        logging.info(df)
                         # Write all input to excel
                         kpi1_perf[m] = current_kp1
-                        fname = r'/Stats/Model_Stats_'+str(m)+'.xlsx'
+                        fname = r'/Stats/Model_Stats_M'+str(m)+'.xlsx'
                         book = wb.create_workbook(BASE_DIR+fname)
                         book = wb.write_link_details(book, links)
                         book = wb.write_demand_details(
@@ -262,7 +281,7 @@ def plot_min_obj_value(f_name):
     plot.ylabel('Network Costs', fontsize=16)
 
     plot.tight_layout()
-    plot.savefig(BASE_DIR+"/Minimumobjective.png", format='png', pad_inches=0)
+    plot.savefig(BASE_DIR+"/Figures/Minimumobjective.png", format='png', pad_inches=0)
 
 
 def plot_scaled_obj_val(f_name, sheet_name , y_label, img_name):
@@ -307,19 +326,25 @@ def run_sol_single():
         plot_min_obj_value(obj_record)
 
     else:
+        logging.info("Time of Start : {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
+        print("Time of Start: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
         min_obj_per_M, kpi1_perf = run_optimiser(network, links, 1)
+        print(kpi1_perf)
         print(min_obj_per_M)
         book = wb.create_workbook(obj_record)
-        book = wb.write_objective_values(book, min_obj_per_M)
+        book = wb.write_objective_values(book, min_obj_per_M, kpi1_perf)
         wb.save_book(book, obj_record)
         plot_min_obj_value(obj_record)
+        logging.info("Time of Completetion Traffic: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
+        print("Time of completetion: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
 
 
 def run_sol_with_scale():
+    
     obj_record = BASE_DIR + '/Stats/Objectives_Scaled.xlsx'
         
-    img_name1 = BASE_DIR+"/Minimumobjective_Scaled.png"
-    img_name2=BASE_DIR+"/LinksUtilization_Scaled.png"
+    img_name1 = BASE_DIR+"/Figures/Minimumobjective_Scaled.png"
+    img_name2=BASE_DIR+"/Figures/LinksUtilization_Scaled.png"
     if os.path.exists(obj_record):
         plot_scaled_obj_val(obj_record,'Obj_Values','Log(Network Costs)', img_name1)
         plot_scaled_obj_val(obj_record,'Link_Utils','Link_Utilization (Y_e)', img_name2)
@@ -329,6 +354,8 @@ def run_sol_with_scale():
         min_obj_scaled = {}
         kpi_perf_scaled = {}
         for s_factor in SCALE_FACTORS:
+            logging.info("Time of Start Scaled Traffic: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
+            print("Time of Start Scaled Traffic: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
             min_obj_per_M, kpi1_perf = run_optimiser(network, links, s_factor)
             min_obj_scaled[s_factor] = min_obj_per_M
             kpi_perf_scaled[s_factor] = kpi1_perf
@@ -338,11 +365,83 @@ def run_sol_with_scale():
         book = wb.write_objective_values_scaled(book, min_obj_scaled, "Obj_Values")
         book = wb.write_objective_values_scaled(book, kpi_perf_scaled, "Link_Utils")
         wb.save_book(book, obj_record)
+        
+        logging.info("Time of Completetion Scaled Traffice: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
+        print("Time of completetion: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
         plot_scaled_obj_val(obj_record,'Obj_Values','Log(Network Costs)', img_name1)
         plot_scaled_obj_val(obj_record,'Link_Utils','Link_Utilization (Y_e)', img_name2)
 
+def print_help():
+    print("Cplex Optimzation Control Plane Design Start")
+    print("=========================================")
+    print("COMMANDS:")
+    print("excelfile             give excel file name with topology details")
+    print("nodefile              json file with nodes")
+    print("edgefile              json file with edges")
+    
 
-run_sol_single()
+
+if __name__ == '__main__':
+   # sys.argv.pop(0)
+
+    if len(sys.argv) < 1:
+        print_help()
+        exit(1)
+    file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
+    BASE_DIR = os.path.dirname(file_path)
+    excel_file, node_file, edge_file='', '', ''
+   
+    execDirAbs = os.getcwd()
+    sys.argv.pop(0)
+    x=0
+    while x<len(sys.argv):
+        arg = sys.argv[x]
+        print(arg)
+        if arg == "excelfile":
+            sys.argv.pop(x)
+            arg = sys.argv[x]
+            sys.argv.pop(x)
+            excel_file = BASE_DIR + '/' + arg  
+            print("Excel file found")  
+            
+        elif arg == "nodefile":
+            sys.argv.pop(x)
+            arg = sys.argv[x]
+            node_file = BASE_DIR + '/' + arg
+            sys.argv.pop(x)
+                   
+        elif arg=="edgefile":
+            sys.argv.pop(x)
+            arg = sys.argv[x]
+            edge_file= BASE_DIR + '/' + arg
+            sys.argv.pop(x)
+            
+        
+
+    if excel_file:
+        network=cplex_input.create_network_from_excel(excel_file)
+        print("Network created")
+    elif node_file and edge_file:
+        network=cplex_input.create_network(node_file, edge_file)
+        print("Network created")
+    else:
+        print("Node or Edge Information missing")
+        exit(1)
+
+    links = {}
+    i = 0
+    for e in network.edges:
+        links[e] = ['e'+str(i), network.edges[e]['linkCost']]
+        i += 1
+    DIVERSITY_FACTOR = 2
+    run_sol_single()
+    run_sol_with_scale()
+                
+
+
+            
+
+#run_sol_single()
 # run_sol_with_scale()
 
 # min_obj_per_M, kpi1_perf = run_optimiser(network, links, 1)

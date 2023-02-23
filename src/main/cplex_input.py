@@ -6,6 +6,12 @@ import pandas as pd
 from itertools import combinations
 import matplotlib.pyplot as plt
 
+def draw_topology(graph, filename):
+    pos= nx.spring_layout(graph)
+    nx.draw(graph, pos, with_labels=True,node_color="tab:blue", node_size=150, font_size=8, font_weight="bold")
+    plt.savefig(filename+".png")
+    plt.clf()
+     
 
 def create_network_from_excel(excel_file):
     df_nodes = pd.read_excel(excel_file, sheet_name='Nodes')
@@ -39,8 +45,9 @@ def create_network(node_file, link_file):
 
     # Add unit cost of traffic
     for e in graph.edges:
-        link_cost = (graph[e[0]][e[1]]['linkDist'] / 10) * \
-            graph[e[0]][e[1]]['noSpans']
+        # Cost/meter for 100 Mbps=0.25$
+        # Cost/meter for 1 Mbps=0.0025$
+        link_cost = 1
         graph[e[0]][e[1]]['linkCost'] = link_cost
     return graph
 

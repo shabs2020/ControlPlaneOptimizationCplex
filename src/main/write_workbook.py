@@ -51,10 +51,10 @@ def write_demand_details(book, demand_volume: dict, demand_paths: dict, demand_p
     parent_row_num = 2
     child_row_num = 2
     for d in demand_volume:
-        sheet['A' + str(parent_row_num)] = parent_row_num
-        sheet['B' + str(parent_row_num)] = d
-        sheet['c' + str(parent_row_num)] = d[2:]
-        sheet['D' + str(parent_row_num)] = demand_volume[d]
+        sheet['A' + str(child_row_num)] = parent_row_num
+        sheet['B' + str(child_row_num)] = d
+        sheet['c' + str(child_row_num)] = d[2:]
+        sheet['D' + str(child_row_num)] = demand_volume[d]
 
         for p in demand_paths[d]:
             sheet['E' + str(child_row_num)] = demand_paths[d][p][-1]
@@ -66,7 +66,7 @@ def write_demand_details(book, demand_volume: dict, demand_paths: dict, demand_p
             sheet['I' + str(child_row_num)] = demand_path_lengths[d][p]
             child_row_num += 1
         #sheet.merge_cells('A2'+str(parent_row_num)+':'+'A'+ str(parent_row_num+len(demands[d][2])-1))
-        parent_row_num = child_row_num
+        parent_row_num +=1
     return book
 
 
@@ -78,15 +78,21 @@ def write_solution(book, dataframe):
     return book
 
 
-def write_objective_values(book, obj: dict):
+def write_objective_values(book, obj: dict,kpi1_perf:dict):
     book.create_sheet("Obj_Values")
     sheet = book["Obj_Values"]
     sheet['A1'] = "Nodes Num."
     sheet['B1'] = "Obj. Value"
+    sheet['C1'] = "LinkBW"
     i = 2
     for val in obj:
         sheet['A' + str(i)] = val
         sheet['B' + str(i)] = obj[val]
+        if kpi1_perf.get(val) is not None:
+            sheet['C' + str(i)] = kpi1_perf[val]
+        else:
+            sheet['C' + str(i)] = 0
+        
         i += 1
     return book
 def write_nested_dict(sheet, obj:dict):

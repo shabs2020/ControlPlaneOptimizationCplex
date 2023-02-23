@@ -129,3 +129,5 @@ dmypy.json
 .pyre/
 ControlPlaneOptimizationCplex/Stats/
 Stats/
+Log/
+ControlPlaneOptimizationCplex/Log/
