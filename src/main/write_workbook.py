@@ -78,12 +78,14 @@ def write_solution(book, dataframe):
     return book
 
 
-def write_objective_values(book, obj: dict,kpi1_perf:dict):
+def write_objective_values(book, obj: dict,kpi1_perf:dict, kpi2_perf:dict):
     book.create_sheet("Obj_Values")
     sheet = book["Obj_Values"]
     sheet['A1'] = "Nodes Num."
     sheet['B1'] = "Obj. Value"
     sheet['C1'] = "LinkBW"
+    sheet['D1'] = "PathUtils"
+    sheet['E1'] = "NodeCosts"
     i = 2
     for val in obj:
         sheet['A' + str(i)] = val
@@ -92,6 +94,11 @@ def write_objective_values(book, obj: dict,kpi1_perf:dict):
             sheet['C' + str(i)] = kpi1_perf[val]
         else:
             sheet['C' + str(i)] = 0
+        if kpi2_perf.get(val) is not None:
+            sheet['D' + str(i)] = kpi2_perf[val][0]
+            sheet['E' + str(i)] = kpi2_perf[val][1]
+        else:
+            sheet['D' + str(i)] = 0
         
         i += 1
     return book
@@ -105,16 +112,41 @@ def write_nested_dict(sheet, obj:dict):
     val_1000=[k[1] for k in obj[1000].items()]
     val_5000=[k[1] for k in obj[5000].items()]
     val_10k=[k[1] for k in obj[10000].items()]
-    for i in range(2, len(obj)+2):
-        sheet.cell(row=1, column=i,value=keys[i-2]) 
-    for i in range(0,len(n_nodes)):
-        sheet['A' + str(i+2)] = n_nodes[i]
-        sheet['B' + str(i+2)] =val_1[i]
-        sheet['C' + str(i+2)] =val_10[i]
-        sheet['D' + str(i+2)] =val_100[i]
-        sheet['E' + str(i+2)] =val_1000[i]
-        sheet['F' + str(i+2)] =val_5000[i]
-        sheet['G' + str(i+2)] =val_10k[i]
+    if(type(val_1[0]) is list):
+        k=0
+        for i in range(2, len(obj)+2):
+            j=0
+            while j<2:
+                sheet.cell(row=1, column=i+k,value=keys[i-2]) 
+                k+=1
+                j+=1
+            k-=1
+        for i in range(0,len(n_nodes)):
+            sheet['A' + str(i+2)] = n_nodes[i]
+            sheet['B' + str(i+2)] =val_1[i][0]
+            sheet['C' + str(i+2)] =val_1[i][1]
+            sheet['D' + str(i+2)] =val_10[i][0]
+            sheet['E' + str(i+2)] =val_10[i][1]
+            sheet['F' + str(i+2)] =val_100[i][0]
+            sheet['G' + str(i+2)] =val_100[i][1]
+            sheet['H' + str(i+2)] =val_1000[i][0]
+            sheet['I' + str(i+2)] =val_1000[i][1]
+            sheet['J' + str(i+2)] =val_5000[i][0]
+            sheet['K' + str(i+2)] =val_5000[i][1]
+            sheet['L' + str(i+2)] =val_10k[i][0]
+            sheet['M' + str(i+2)] =val_10k[i][1]
+            #print(i)
+    else:
+        for i in range(2, len(obj)+2):
+            sheet.cell(row=1, column=i,value=keys[i-2]) 
+        for i in range(0,len(n_nodes)):
+            sheet['A' + str(i+2)] = n_nodes[i]
+            sheet['B' + str(i+2)] =val_1[i]
+            sheet['C' + str(i+2)] =val_10[i]
+            sheet['D' + str(i+2)] =val_100[i]
+            sheet['E' + str(i+2)] =val_1000[i]
+            sheet['F' + str(i+2)] =val_5000[i]
+            sheet['G' + str(i+2)] =val_10k[i]
     return sheet
 
 def write_objective_values_scaled(book, obj: dict, sheet_name:str):

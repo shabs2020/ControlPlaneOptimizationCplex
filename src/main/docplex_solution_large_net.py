@@ -8,8 +8,9 @@ import write_workbook as wb
 import matplotlib.pyplot as plot
 import math
 from itertools import combinations
+import random
 import faulthandler
-
+from iteration_utilities import random_combination
 faulthandler.enable()
 import sys
 from datetime import datetime
@@ -17,7 +18,7 @@ import logging
 
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
-logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_scale.txt", level=logging.INFO)
+logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_largeNet_06.03.txt", level=logging.INFO)
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
 
@@ -157,7 +158,10 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
     ###############################################################################
     # sum(p ∈ p(d)) δedip*mu_p^d is also part of the objective function
     # hence part of code is used to deifne the objective kpi
+    # Fix to Segmentation Fault with np.multiply of large arrays
     obj_kpi1 = []
+    
+    chunk_size=15
     for e in set_links:
         for d in set_demands:
             constraint_name = "c2_" + e + "_" + d
@@ -166,7 +170,20 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
                     para_del_e_p[e + "_" + d + "_" + p] for p in demand_path_edges[d]
                 ]
                 vars = [var_mu_d_p["mu_" + d + "_" + p] for p in demand_path_edges[d]]
-            prod_vars_paras = np.multiply(paras, vars)
+            #For large arrays, direct mltiplcation causes segmentation fault
+            #
+            # Therefore needs to be split
+            if len(paras) > chunk_size:
+                prod_vars_paras=[]
+                s_paras=np.array_split(np.array(paras),chunk_size)
+                s_vars=np.array_split(np.array(vars),chunk_size)
+                for j in range(0,chunk_size):
+                    prod_vars_paras.extend(np.multiply(s_paras[j],s_vars[j]))
+                
+            else:
+                prod_vars_paras = np.multiply(paras, vars)
+                
+
             obj_kpi1.extend(
                 np.array(prod_vars_paras)
                 * (demand_volume[d] / DIVERSITY_FACTOR)
@@ -226,112 +243,116 @@ def run_optimiser(network, links, scale_factor):
     kpi1_perf = {}
     kpi2_perf = {}
     total_episodes = len(network.nodes)
+    
     print(total_episodes)
-    for m in range(2, total_episodes + 1):
-        if m == total_episodes:
-            orig_capacity = [network.nodes[n]["demandVolume"] for n in network_nodes]
-            capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
-            control_node_costs = sum(capacity)
-            min_obj_per_M[m] = control_node_costs
-        else:
-            min_objective_value = 99999990.00
-            for d_node_combos in combinations(network_nodes, m):
-                capacity = {}
-                d_nodes = list(d_node_combos)
-                ind_nodes = list(set(list(network.nodes)).difference(d_nodes))
-                # Call Optimizer
-                (
-                    optimizer,
-                    demand_volume,
-                    demand_paths,
-                    demand_path_edges,
-                    demand_path_lengths,
-                ) = model_optimizer(network, links, d_nodes, ind_nodes, scale_factor)
-                sol = optimizer.solve(log_output=True)
-                if optimizer.solve_details.status == "integer optimal solution":
-                    variables_in_sol = sol.as_df()
-                    for d in variables_in_sol["name"]:
-                        path_name = d[-3:].translate({ord("_"): None})
-                        s_name = d[4:-3].translate({ord("_"): None})
-                        capacity[demand_paths["d_" + s_name][path_name][-1]] = (
-                            demand_volume["d_" + s_name] / 2 + network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"]
-                            if demand_paths["d_" + s_name][path_name][-1]
-                            not in capacity.keys()
-                            else capacity[demand_paths["d_" + s_name][path_name][-1]]
-                            + demand_volume["d_" + s_name] / 2
-                        )
-                    print("Capacity per indirect node \n")
-                    print(capacity)
-                    control_node_costs = cplex_input.round_capacity(
-                        sum(capacity.values())
-                    ) * len(capacity)
-                    remaining_direct_nodes=list(d_nodes-capacity.keys())
-                    orig_capacity = [network.nodes[n]["demandVolume"] for n in remaining_direct_nodes]
-                    d_capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
-                    control_node_costs = control_node_costs + sum(d_capacity)
-                    print("Capacity per direct node \n")
-                    print(d_capacity)
-                    print("node costs {}".format(control_node_costs))
-                    current_objective_value = (
-                        sol.get_objective_value() + control_node_costs
+    for m in range(2, total_episodes + 1,3):
+        logging.info("Number of control nodes {}".format(m))
+        min_objective_value = 99999990.0
+        d_node_random_combos=[]
+        for i in range(500000):
+            d_node_random_combos.append(random_combination(network_nodes,m))
+        d_node_combos=list(set(d_node_random_combos))           
+        for node_combos in d_node_combos:
+            capacity = {}
+            d_nodes = list(node_combos)
+            ind_nodes = list(set(list(network.nodes)).difference(d_nodes))
+            # Call Optimizer
+            (
+                optimizer,
+                demand_volume,
+                demand_paths,
+                demand_path_edges,
+                demand_path_lengths,
+            ) = model_optimizer(network, links, d_nodes, ind_nodes, scale_factor)
+            sol = optimizer.solve(log_output=True)
+            if optimizer.solve_details.status == "integer optimal solution":
+                variables_in_sol = sol.as_df()
+                for d in variables_in_sol["name"]:
+                    path_name = d[-3:].translate({ord("_"): None})
+                    s_name = d[4:-3].translate({ord("_"): None})
+                    capacity[demand_paths["d_" + s_name][path_name][-1]] = (
+                        demand_volume["d_" + s_name] / 2 + network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"]
+                        if demand_paths["d_" + s_name][path_name][-1]
+                        not in capacity.keys()
+                        else capacity[demand_paths["d_" + s_name][path_name][-1]]
+                        + demand_volume["d_" + s_name] / 2
                     )
-                    logging.info(
-                        "Solution status is {}".format(optimizer.solve_details.status)
+                print("Capacity per indirect node \n")
+                print(capacity)
+                control_node_costs = cplex_input.round_capacity(
+                    sum(capacity.values())
+                ) * len(capacity)
+                remaining_direct_nodes=list(d_nodes-capacity.keys())
+                orig_capacity = [network.nodes[n]["demandVolume"] for n in remaining_direct_nodes]
+                d_capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
+                control_node_costs = control_node_costs + sum(d_capacity)
+                print("Capacity per direct node \n")
+                print(d_capacity)
+                print("node costs {}".format(control_node_costs))
+                current_objective_value = (
+                    sol.get_objective_value() + control_node_costs
+                )
+                logging.info(
+                    "Solution status is {}".format(optimizer.solve_details.status)
+                )
+                logging.info(
+                    "Objective value for the solution is {}".format(
+                        current_objective_value
                     )
-                    logging.info(
-                        "Objective value for the solution is {}".format(
-                            current_objective_value
-                        )
+                )
+                logging.info(
+                    "Number of variables {}".format(sol.number_of_var_values)
+                )
+                print(
+                    "Solution status is {}".format(optimizer.solve_details.status)
+                )
+                print(
+                    "Objective value for the solution is {}".format(
+                        current_objective_value
                     )
-                    logging.info(
-                        "Number of variables {}".format(sol.number_of_var_values)
+                )
+                print(
+                    "Current Minimum value for the solution is {}".format(
+                        min_objective_value
                     )
+                )
+                # print("Number of variables {}".format(sol.number_of_var_values))
+                if min_objective_value > current_objective_value:
+                    min_objective_value = current_objective_value
+                    current_kp1 = sol.kpi_value_by_name("link_util")
+                    current_kp2 = sol.kpi_value_by_name("path_cost")
+
+                    logging.info("variables_in_sol {}".format(variables_in_sol))
+                    logging.info("Demand details {}".format(demand_volume))
+                    logging.info("demand_paths {}".format(demand_paths))
+
+                    # Write all input to excel
+                    kpi1_perf[m] = current_kp1
+                    kpi2_perf[m] = [current_kp2, control_node_costs]
+                    fname = r"/Stats/Model_Stats_LN1_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
+                    #'_' + str(scale_factor)+
+                    book = wb.create_workbook(BASE_DIR + fname)
+                    book = wb.write_link_details(book, links)
+                    book = wb.write_demand_details(
+                        book,
+                        demand_volume,
+                        demand_paths,
+                        demand_path_edges,
+                        demand_path_lengths,
+                    )
+                    book = wb.write_solution(book, variables_in_sol)
+                    wb.save_book(book, BASE_DIR + fname)
                     print(
-                        "Solution status is {}".format(optimizer.solve_details.status)
-                    )
-                    print(
-                        "Objective value for the solution is {}".format(
-                            current_objective_value
-                        )
-                    )
-                    print(
-                        "Current Minimum value for the solution is {}".format(
+                        "Current Minimum value after compute for the solution is {}".format(
                             min_objective_value
                         )
                     )
-                    # print("Number of variables {}".format(sol.number_of_var_values))
-                    if min_objective_value > current_objective_value:
-                        min_objective_value = current_objective_value
-                        current_kp1 = sol.kpi_value_by_name("link_util")
-                        current_kp2 = sol.kpi_value_by_name("path_cost")
-
-                        logging.info("variables_in_sol {}".format(variables_in_sol))
-                        logging.info("Demand details {}".format(demand_volume))
-                        logging.info("demand_paths {}".format(demand_paths))
-
-                        # Write all input to excel
-                        kpi1_perf[m] = current_kp1
-                        kpi2_perf[m] = [current_kp2, control_node_costs]
-                        fname = r"/Stats/Model_Stats_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
-                        #'_' + str(scale_factor)+
-                        book = wb.create_workbook(BASE_DIR + fname)
-                        book = wb.write_link_details(book, links)
-                        book = wb.write_demand_details(
-                            book,
-                            demand_volume,
-                            demand_paths,
-                            demand_path_edges,
-                            demand_path_lengths,
-                        )
-                        book = wb.write_solution(book, variables_in_sol)
-                        wb.save_book(book, BASE_DIR + fname)
-                        print(
-                            "Current Minimum value after compute for the solution is {}".format(
-                                min_objective_value
-                            )
-                        )
 
                 min_obj_per_M[m] = min_objective_value
+    orig_capacity = [network.nodes[n]["demandVolume"] for n in network_nodes]
+    capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
+    control_node_costs = sum(capacity)
+    min_obj_per_M[total_episodes] = control_node_costs
     return min_obj_per_M, kpi1_perf, kpi2_perf
 
 
@@ -400,9 +421,9 @@ def run_sol_single():
         )
         print("Time of Start: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
         min_obj_per_M, kpi1_perf, kpi2_perf = run_optimiser(network, links, 1)
-        print(kpi1_perf)
-        print(kpi2_perf)
-        print(min_obj_per_M)
+        # print(kpi1_perf)
+        # print(kpi2_perf)
+        # print(min_obj_per_M)
         book = wb.create_workbook(obj_record)
         book = wb.write_objective_values(book, min_obj_per_M, kpi1_perf, kpi2_perf)
         wb.save_book(book, obj_record)
@@ -537,7 +558,7 @@ if __name__ == "__main__":
         i += 1
     DIVERSITY_FACTOR = 2
     run_sol_single()
-    #run_sol_with_scale()
+    run_sol_with_scale()
 
 
 # run_sol_single()
