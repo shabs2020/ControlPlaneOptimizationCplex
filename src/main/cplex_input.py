@@ -119,8 +119,7 @@ def find_potential_paths(i: str, direct_nodes: list, edges: dict, network: nx.Gr
     path_lengths = {}
     count = 1
     for j in direct_nodes:
-        paths = list(nx.node_disjoint_paths(G=network, s=i, t=j, cutoff=5))
-        for p in paths:
+        for p in nx.node_disjoint_paths(G=network, s=i, t=j, cutoff=5):
             path_edges = []
             potential_paths["p" + str(count)] = p
             pairs = [p[i : i + 2] for i in range(len(p) - 1)]
@@ -143,6 +142,7 @@ def find_potential_paths(i: str, direct_nodes: list, edges: dict, network: nx.Gr
 def define_control_demands(
     nodes: list, direct_nodes: list, edges: dict, network: nx.Graph, scale_factor: int
 ):
+    
     demand_volume = {}
     demand_paths = {}
     demand_path_edges = {}
@@ -157,6 +157,7 @@ def define_control_demands(
         demand_paths["d_" + n] = potential_paths
         demand_path_edges["d_" + n] = potential_path_edges
         demand_path_lengths["d_" + n] = path_lengths
+        del potential_paths, potential_path_edges, path_lengths
 
     return demand_volume, demand_paths, demand_path_edges, demand_path_lengths
 

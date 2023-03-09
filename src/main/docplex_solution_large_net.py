@@ -18,7 +18,7 @@ import logging
 
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
-logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_largeNet_06.03.txt", level=logging.INFO)
+logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_largeNet_09.03.txt", level=logging.INFO)
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
 
@@ -245,11 +245,11 @@ def run_optimiser(network, links, scale_factor):
     total_episodes = len(network.nodes)
     
     print(total_episodes)
-    for m in range(2, total_episodes + 1,3):
+    for m in range(2, total_episodes + 1,4):
         logging.info("Number of control nodes {}".format(m))
         min_objective_value = 99999990.0
         d_node_random_combos=[]
-        for i in range(500000):
+        for i in range(70000):
             d_node_random_combos.append(random_combination(network_nodes,m))
         d_node_combos=list(set(d_node_random_combos))           
         for node_combos in d_node_combos:
@@ -353,6 +353,11 @@ def run_optimiser(network, links, scale_factor):
     capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
     control_node_costs = sum(capacity)
     min_obj_per_M[total_episodes] = control_node_costs
+    del(demand_path_edges)
+    del(demand_path_lengths)
+    del(demand_paths)
+    del(demand_volume)
+    
     return min_obj_per_M, kpi1_perf, kpi2_perf
 
 
