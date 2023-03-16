@@ -11,6 +11,7 @@ from itertools import combinations
 import random
 import faulthandler
 from iteration_utilities import random_combination
+
 faulthandler.enable()
 import sys
 from datetime import datetime
@@ -18,7 +19,9 @@ import logging
 
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
-logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_largeNet_09.03.txt", level=logging.INFO)
+logging.basicConfig(
+    filename=BASE_DIR + "/Log/docplexlog_largeNet_15.03_C30_22.txt", level=logging.INFO
+)
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
 
@@ -160,8 +163,8 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
     # hence part of code is used to deifne the objective kpi
     # Fix to Segmentation Fault with np.multiply of large arrays
     obj_kpi1 = []
-    
-    chunk_size=15
+
+    chunk_size = 15
     for e in set_links:
         for d in set_demands:
             constraint_name = "c2_" + e + "_" + d
@@ -170,25 +173,25 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
                     para_del_e_p[e + "_" + d + "_" + p] for p in demand_path_edges[d]
                 ]
                 vars = [var_mu_d_p["mu_" + d + "_" + p] for p in demand_path_edges[d]]
-            #For large arrays, direct mltiplcation causes segmentation fault
+            # For large arrays, direct mltiplcation causes segmentation fault
             #
             # Therefore needs to be split
             if len(paras) > chunk_size:
-                prod_vars_paras=[]
-                s_paras=np.array_split(np.array(paras),chunk_size)
-                s_vars=np.array_split(np.array(vars),chunk_size)
-                for j in range(0,chunk_size):
-                    prod_vars_paras.extend(np.multiply(s_paras[j],s_vars[j]))
-                
+                prod_vars_paras = []
+                s_paras = np.array_split(np.array(paras), chunk_size)
+                s_vars = np.array_split(np.array(vars), chunk_size)
+                for j in range(0, chunk_size):
+                    prod_vars_paras.extend(np.multiply(s_paras[j], s_vars[j]))
+
             else:
                 prod_vars_paras = np.multiply(paras, vars)
-                
-
-            obj_kpi1.extend(
+            obj_kpi_formula = (
                 np.array(prod_vars_paras)
                 * (demand_volume[d] / DIVERSITY_FACTOR)
                 * set_link_costs[set_links.index(e)]
             )
+
+            obj_kpi1.extend(obj_kpi_formula)
             # print("length of kp1 {}".format(len(obj_kpi1)))
             optimizer.add_constraint(
                 ct=sum(prod_vars_paras) <= 1, ctname=constraint_name
@@ -243,15 +246,15 @@ def run_optimiser(network, links, scale_factor):
     kpi1_perf = {}
     kpi2_perf = {}
     total_episodes = len(network.nodes)
-    
+
     print(total_episodes)
-    for m in range(2, total_episodes + 1,4):
+    for m in range(22, 26, 4):
         logging.info("Number of control nodes {}".format(m))
         min_objective_value = 99999990.0
-        d_node_random_combos=[]
+        d_node_random_combos = []
         for i in range(70000):
-            d_node_random_combos.append(random_combination(network_nodes,m))
-        d_node_combos=list(set(d_node_random_combos))           
+            d_node_random_combos.append(random_combination(network_nodes, m))
+        d_node_combos = list(set(d_node_random_combos))
         for node_combos in d_node_combos:
             capacity = {}
             d_nodes = list(node_combos)
@@ -271,7 +274,10 @@ def run_optimiser(network, links, scale_factor):
                     path_name = d[-3:].translate({ord("_"): None})
                     s_name = d[4:-3].translate({ord("_"): None})
                     capacity[demand_paths["d_" + s_name][path_name][-1]] = (
-                        demand_volume["d_" + s_name] / 2 + network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"]
+                        demand_volume["d_" + s_name] / 2
+                        + network.nodes[demand_paths["d_" + s_name][path_name][-1]][
+                            "demandVolume"
+                        ]
                         if demand_paths["d_" + s_name][path_name][-1]
                         not in capacity.keys()
                         else capacity[demand_paths["d_" + s_name][path_name][-1]]
@@ -282,16 +288,16 @@ def run_optimiser(network, links, scale_factor):
                 control_node_costs = cplex_input.round_capacity(
                     sum(capacity.values())
                 ) * len(capacity)
-                remaining_direct_nodes=list(d_nodes-capacity.keys())
-                orig_capacity = [network.nodes[n]["demandVolume"] for n in remaining_direct_nodes]
+                remaining_direct_nodes = list(d_nodes - capacity.keys())
+                orig_capacity = [
+                    network.nodes[n]["demandVolume"] for n in remaining_direct_nodes
+                ]
                 d_capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
                 control_node_costs = control_node_costs + sum(d_capacity)
                 print("Capacity per direct node \n")
                 print(d_capacity)
                 print("node costs {}".format(control_node_costs))
-                current_objective_value = (
-                    sol.get_objective_value() + control_node_costs
-                )
+                current_objective_value = sol.get_objective_value() + control_node_costs
                 logging.info(
                     "Solution status is {}".format(optimizer.solve_details.status)
                 )
@@ -300,12 +306,8 @@ def run_optimiser(network, links, scale_factor):
                         current_objective_value
                     )
                 )
-                logging.info(
-                    "Number of variables {}".format(sol.number_of_var_values)
-                )
-                print(
-                    "Solution status is {}".format(optimizer.solve_details.status)
-                )
+                logging.info("Number of variables {}".format(sol.number_of_var_values))
+                print("Solution status is {}".format(optimizer.solve_details.status))
                 print(
                     "Objective value for the solution is {}".format(
                         current_objective_value
@@ -329,7 +331,13 @@ def run_optimiser(network, links, scale_factor):
                     # Write all input to excel
                     kpi1_perf[m] = current_kp1
                     kpi2_perf[m] = [current_kp2, control_node_costs]
-                    fname = r"/Stats/Model_Stats_LN1_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
+                    fname = (
+                        r"/Stats/Model_Stats_LN1_M"
+                        + str(m)
+                        + "_"
+                        + str(scale_factor)
+                        + ".xlsx"
+                    )
                     #'_' + str(scale_factor)+
                     book = wb.create_workbook(BASE_DIR + fname)
                     book = wb.write_link_details(book, links)
@@ -353,11 +361,11 @@ def run_optimiser(network, links, scale_factor):
     capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
     control_node_costs = sum(capacity)
     min_obj_per_M[total_episodes] = control_node_costs
-    del(demand_path_edges)
-    del(demand_path_lengths)
-    del(demand_paths)
-    del(demand_volume)
-    
+    del demand_path_edges
+    del demand_path_lengths
+    del demand_paths
+    del demand_volume
+
     return min_obj_per_M, kpi1_perf, kpi2_perf
 
 
@@ -445,7 +453,6 @@ def run_sol_single():
         )
 
 
-
 def run_sol_with_scale():
     obj_record = BASE_DIR + "/Stats/Objectives_Scaled.xlsx"
 
@@ -461,7 +468,7 @@ def run_sol_with_scale():
         SCALE_FACTORS = [1, 10, 100, 1000, 5000, 10000]
         min_obj_scaled = {}
         kpi_perf_scaled = {}
-        kpi2_perf_scaled={}
+        kpi2_perf_scaled = {}
         for s_factor in SCALE_FACTORS:
             logging.info(
                 "Time of Start Scaled Traffic: {}".format(
@@ -473,7 +480,9 @@ def run_sol_with_scale():
                     datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 )
             )
-            min_obj_per_M, kpi1_perf, kpi2_perf = run_optimiser(network, links, s_factor)
+            min_obj_per_M, kpi1_perf, kpi2_perf = run_optimiser(
+                network, links, s_factor
+            )
             min_obj_scaled[s_factor] = min_obj_per_M
             kpi_perf_scaled[s_factor] = kpi1_perf
             kpi2_perf_scaled[s_factor] = kpi2_perf
