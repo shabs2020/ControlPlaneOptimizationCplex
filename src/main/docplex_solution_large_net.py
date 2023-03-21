@@ -20,7 +20,7 @@ import logging
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
 logging.basicConfig(
-    filename=BASE_DIR + "/Log/docplexlog_largeNet_15.03_C30_22.txt", level=logging.INFO
+    filename=BASE_DIR + "/Log/docplexlog_largeNet_21.03_C30_until22.txt", level=logging.INFO
 )
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
@@ -248,7 +248,7 @@ def run_optimiser(network, links, scale_factor):
     total_episodes = len(network.nodes)
 
     print(total_episodes)
-    for m in range(22, 26, 4):
+    for m in range(6, 10, 4):
         logging.info("Number of control nodes {}".format(m))
         min_objective_value = 99999990.0
         d_node_random_combos = []
@@ -283,17 +283,16 @@ def run_optimiser(network, links, scale_factor):
                         else capacity[demand_paths["d_" + s_name][path_name][-1]]
                         + demand_volume["d_" + s_name] / 2
                     )
-                print("Capacity per indirect node \n")
+                print("Capacity per direct node \n")
                 print(capacity)
-                control_node_costs = cplex_input.round_capacity(
-                    sum(capacity.values())
-                ) * len(capacity)
+                control_node_costs = sum(capacity.values())
                 remaining_direct_nodes = list(d_nodes - capacity.keys())
                 orig_capacity = [
                     network.nodes[n]["demandVolume"] for n in remaining_direct_nodes
                 ]
                 d_capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
                 control_node_costs = control_node_costs + sum(d_capacity)
+                control_node_costs=cplex_input.round_capacity(control_node_costs)
                 print("Capacity per direct node \n")
                 print(d_capacity)
                 print("node costs {}".format(control_node_costs))
@@ -349,6 +348,7 @@ def run_optimiser(network, links, scale_factor):
                         demand_path_lengths,
                     )
                     book = wb.write_solution(book, variables_in_sol)
+                    book=wb.write_kpis_per_M(book,min_objective_value, current_kp1, current_kp2, control_node_costs)
                     wb.save_book(book, BASE_DIR + fname)
                     print(
                         "Current Minimum value after compute for the solution is {}".format(
@@ -365,7 +365,7 @@ def run_optimiser(network, links, scale_factor):
     del demand_path_lengths
     del demand_paths
     del demand_volume
-
+    
     return min_obj_per_M, kpi1_perf, kpi2_perf
 
 

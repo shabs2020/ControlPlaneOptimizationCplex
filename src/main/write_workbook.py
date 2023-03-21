@@ -77,6 +77,19 @@ def write_solution(book, dataframe):
         sheet.append(r)
     return book
 
+def write_kpis_per_M(book,min_objective_value, link_kpi, path_kpi,control_node_costs):
+    book.create_sheet("Objective_Values")
+    sheet = book["Objective_Values"]
+    sheet['A1'] = "Obj.Value."
+    sheet['B1'] = "LinkBW"
+    sheet['C1'] = "PathUtils"
+    sheet['D1'] = "NodeCosts"
+    sheet['A2'] = min_objective_value
+    sheet['B2'] = link_kpi
+    sheet['C2'] = path_kpi
+    sheet['D2'] = control_node_costs
+
+    return book
 
 def write_objective_values(book, obj: dict,kpi1_perf:dict, kpi2_perf:dict):
     book.create_sheet("Obj_Values")
