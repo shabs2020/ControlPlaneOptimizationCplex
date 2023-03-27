@@ -109,13 +109,16 @@ def network_plot(networkfname, nodename):
 
 
 def plot_total_capacity_costs(fname):
-    solver_data=pd.read_excel(BASE_DIR + '/Stats/Euclid/Objectives.xlsx', sheet_name='Obj_Values',header=0)
+    solver_data=pd.read_excel(BASE_DIR + fname, sheet_name='Obj_Values',header=0)
     x_values=list(solver_data['Nodes Num.'])
     link_utils=solver_data['LinkBW']
     node_utils=solver_data['NodeCosts']
     node_utils=node_utils.fillna(solver_data['Obj. Value'].iloc[-1])
     net_capacity_costs=link_utils+node_utils
     y_values=list(net_capacity_costs)
+    # print('link_utils{}'.format(link_utils))
+    # print('node_utils {}'.format(node_utils))
+    # print('net_capacity_costs {}'.format(net_capacity_costs))
     plt.figure(figsize=(8.5, 5), dpi=80)
     color = "tab:blue"
     plt.plot(x_values, y_values, '-o', color=color, linewidth=2)
@@ -126,14 +129,14 @@ def plot_total_capacity_costs(fname):
     plt.legend(fontsize=16)
     plt.yticks(fontsize=12)
     plt.xticks(np.arange(1, 18, 1),fontsize=12)
-    plt.xlabel("Number of control plane interfaces (M)", fontsize=18)
+    plt.xlabel("Number of control plane interfaces ($m$)", fontsize=18)
     plt.ylabel("Network  Capacity Costs [Mbps]", fontsize=18)
     plt.grid(axis = 'y')
     plt.tight_layout()
-    plt.savefig(BASE_DIR + "/Figures/NetworkCapacityCosts_Germany17.png", format="png", pad_inches=0)
+    plt.savefig(BASE_DIR + "/Figures/NetworkCostsCoronet30.png", format="png", pad_inches=0)
 
 def plot_costs_contrib(fname):
-    solver_data=pd.read_excel(fname, sheet_name='Obj_Values',header=0)
+    solver_data=pd.read_excel(BASE_DIR+ fname, sheet_name='Obj_Values',header=0)
     x_values=list(solver_data['Nodes Num.'])
     link_utils=list(solver_data['LinkBW'])
     node_utils=solver_data['NodeCosts']
@@ -143,27 +146,27 @@ def plot_costs_contrib(fname):
 
     plt.plot(x_values, link_utils, color='g', linewidth=2, label='Capacity Costs due to link utilization ($C_{L}$)')
     plt.plot(x_values, node_utils, color='r', linewidth=2, label='Capacity Costs of control plane interfaces ($C_{C}$)')
-    x1_annotations = [x_values[4],x_values[5]]
-    y1_annotations = [link_utils[4], link_utils[5]]
-    y2_annotations = [node_utils[4], node_utils[5]]
+    x1_annotations = [x_values[7]]
+    y1_annotations = [link_utils[7]]
+    y2_annotations = [node_utils[7]]
     # min_x = x_values[np.argmin(y_values)]
     # min_y = min(y_values)
     plt.plot(x1_annotations, y1_annotations, "o", c="g" )
     plt.plot(x1_annotations, y2_annotations, "o", c="r" )
     label1="{:.2f}".format(y1_annotations[0])
     plt.annotate(label1,  # this is the text
-                      xy=(x1_annotations[0], y1_annotations[0]), xytext=(-20,40), 
+                      xy=(x1_annotations[0], y1_annotations[0]), xytext=(20,15), 
             textcoords='offset points', ha='center', va='bottom',
             bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
             arrowprops=dict(arrowstyle='->', 
                             color='green'),fontsize=14)
-    label2="{:.2f}".format(y1_annotations[1])
-    plt.annotate(label2,  # this is the text
-                      xy=(x1_annotations[1], y1_annotations[1]), xytext=(50,-10), 
-            textcoords='offset points', ha='center', va='bottom',
-            bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
-            arrowprops=dict(arrowstyle='->', 
-                            color='green'),fontsize=14)
+    # label2="{:.2f}".format(y1_annotations[1])
+    # plt.annotate(label2,  # this is the text
+    #                   xy=(x1_annotations[1], y1_annotations[1]), xytext=(50,-10), 
+    #         textcoords='offset points', ha='center', va='bottom',
+    #         bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
+    #         arrowprops=dict(arrowstyle='->', 
+    #                         color='green'),fontsize=14)
     label1="{:.2f}".format(y2_annotations[0])
     plt.annotate(label1,  # this is the text
                       xy=(x1_annotations[0], y2_annotations[0]), xytext=(10,-40), 
@@ -171,13 +174,13 @@ def plot_costs_contrib(fname):
             bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
             arrowprops=dict(arrowstyle='->',
                             color='red'),fontsize=14)
-    label2="{:.2f}".format(y2_annotations[1])
-    plt.annotate(label2,  # this is the text
-                      xy=(x1_annotations[1], y2_annotations[1]), xytext=(20,30), 
-            textcoords='offset points', ha='center', va='bottom',
-            bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
-            arrowprops=dict(arrowstyle='->', 
-                            color='red'),fontsize=14)
+    # label2="{:.2f}".format(y2_annotations[1])
+    # plt.annotate(label2,  # this is the text
+    #                   xy=(x1_annotations[1], y2_annotations[1]), xytext=(20,30), 
+    #         textcoords='offset points', ha='center', va='bottom',
+    #         bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
+    #         arrowprops=dict(arrowstyle='->', 
+    #                         color='red'),fontsize=14)
     # for x, y in zip(x1_annotations, y1_annotations):
     #     label = "{:.2f}".format(y)
 
@@ -188,14 +191,14 @@ def plot_costs_contrib(fname):
     #         arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.5', 
     #                         color='red')) 
    # plt.scatter(min_x, min_y, c="r" ,label="Minimum Capacity Costs")
-    plt.legend(fontsize=16)
+    plt.legend(fontsize=16,loc='upper center')
     plt.yticks(fontsize=12)
     plt.xticks(np.arange(1, 18, 1),fontsize=12)
-    plt.xlabel("Number of control plane interfaces", fontsize=18)
+    plt.xlabel("Number of control plane interfaces ($m$)", fontsize=18)
     plt.ylabel("Network  Capacity Costs [Mbps]", fontsize=18)
     plt.grid(axis = 'y')
     plt.tight_layout()
-    plt.savefig(BASE_DIR + "/Figures/CostsContrib_Germany17.png", format="png", pad_inches=0)
+    plt.savefig(BASE_DIR + "/Figures/CostsContrib_Coronet30.png", format="png", pad_inches=0)
 
 
 def plot_scaled_obj_val(f_name):
@@ -234,11 +237,11 @@ def plot_scaled_obj_val(f_name):
     plt.legend(fontsize=16, loc='upper left', bbox_to_anchor=(0.7, 1.08))
     plt.yticks(fontsize=12)
     plt.xticks(np.arange(1, 18, 1),fontsize=12)
-    plt.xlabel("Number of control plane interfaces (M)", fontsize=18)
+    plt.xlabel("Number of control plane interfaces ($m$)", fontsize=18)
     plt.ylabel("Network  Capacity Costs [$log_{10}(C_{CP})$]", fontsize=18)
     plt.grid(axis = 'y')
     plt.tight_layout()
-    plt.savefig(BASE_DIR + "/Figures/Scalefactor_Germany17.png", format="png", pad_inches=0)
+    plt.savefig(BASE_DIR + "/Figures/Scalefactor_Germany17_new.png", format="png", pad_inches=0)
 
 
 
@@ -248,12 +251,12 @@ def plot_scaled_obj_val(f_name):
 
 
 def main():
-    obj_fname=BASE_DIR + '/Stats/Euclid/Objectives.xlsx'
-   # plot_total_capacity_costs(obj_fname)
-   # plot_costs_contrib(obj_fname)
+    obj_fname='/Stats/Coronet30/Objectives.xlsx'
+    plot_total_capacity_costs(obj_fname)
+    plot_costs_contrib(obj_fname)
     networkfname='Stats/Euclid/Model_Stats_G17_M2_1.xlsx'
    # network_plot(networkfname, 'Hamburg')
-    scale_fname='Stats/Objectives_Scaled.xlsx'
+    scale_fname='Stats/Euclid_New/Objectives_Scaled.xlsx'
     plot_scaled_obj_val(scale_fname)
 
 
