@@ -127,4 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-ControlPlaneOptimizationCplex/Stats
+ControlPlaneOptimizationCplex/Stats/
+Stats/
+Log/
+ControlPlaneOptimizationCplex/Log/
+Figures/
+.idea/
