@@ -284,7 +284,7 @@ def run_optimiser(network, links, scale_factor):
                     if 'mu_d' in d:
                         path_name = d[-3:].translate({ord("_"): None})
                         s_name = d[4:-3].translate({ord("_"): None})
-                        print(network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"])
+                        #print(network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"])
                         capacity[demand_paths["d_" + s_name][path_name][-1]]=capacity.get(demand_paths["d_" + s_name][path_name][-1], network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"]*scale_factor)+demand_volume["d_" + s_name] / 2
                     else:
                         d_nodes.append(d[4:])
