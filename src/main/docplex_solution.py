@@ -263,7 +263,6 @@ def run_optimiser(network, links, scale_factor, demand_volume,
             control_node_costs = sum(capacity)
             min_obj_per_M[m] = control_node_costs
         else:
-            min_objective_value = 99999990.00
             capacity = {}
 
             # Call Optimizer
@@ -279,9 +278,9 @@ def run_optimiser(network, links, scale_factor, demand_volume,
                 d_nodes=[]
                 for d in variables_in_sol["name"]:
                     if 'mu_d' in d:
-                        path_name = re.findall(path_regex, d, re.MULTILINE)
+                        path_name = re.findall(path_regex, d, re.MULTILINE)[0]
                         print(path_name)
-                        s_name = re.findall(source_regex, d, re.MULTILINE)
+                        s_name = re.findall(source_regex, d, re.MULTILINE)[0]
                         print(s_name)
                         #print(network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"])
                         capacity[demand_paths["d_" + s_name][path_name][-1]]=capacity.get(demand_paths["d_" + s_name][path_name][-1], network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"]*scale_factor)+demand_volume["d_" + s_name] / 2
@@ -317,44 +316,34 @@ def run_optimiser(network, links, scale_factor, demand_volume,
                         current_objective_value
                     )
                 )
-                print(
-                    "Current Minimum value for the solution is {}".format(
-                        min_objective_value
-                    )
-                )
                 print("Number of variables {}".format(sol.number_of_var_values))
-                if min_objective_value > current_objective_value:
-                    min_objective_value = current_objective_value
-                    current_kp1 = sol.kpi_value_by_name("link_util")
-                    current_kp2 = sol.kpi_value_by_name("path_cost")
 
-                    logging.info("variables_in_sol {}".format(variables_in_sol))
-                    logging.info("Demand details {}".format(demand_volume))
-                    logging.info("demand_paths {}".format(demand_paths))
+                current_kp1 = sol.kpi_value_by_name("link_util")
+                current_kp2 = sol.kpi_value_by_name("path_cost")
 
-                    # Write all input to excel
-                    kpi1_perf[m] = current_kp1
-                    kpi2_perf[m] = [current_kp2, control_node_costs]
-                    fname = r"/Stats/Model_Stats_NewForm_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
-                    #'_' + str(scale_factor)+
-                    book = wb.create_workbook(BASE_DIR + fname)
-                    book = wb.write_link_details(book, links)
-                    book = wb.write_demand_details(
-                        book,
-                        demand_volume,
-                        demand_paths,
-                        demand_path_edges,
-                        demand_path_lengths,
-                    )
-                    book = wb.write_solution(book, variables_in_sol)
-                    wb.save_book(book, BASE_DIR + fname)
-                    print(
-                        "Current Minimum value after compute for the solution is {}".format(
-                            min_objective_value
-                        )
-                    )
+                logging.info("variables_in_sol {}".format(variables_in_sol))
+                logging.info("Demand details {}".format(demand_volume))
+                logging.info("demand_paths {}".format(demand_paths))
 
-                min_obj_per_M[m] = min_objective_value
+                # Write all input to excel
+                kpi1_perf[m] = current_kp1
+                kpi2_perf[m] = [current_kp2, control_node_costs]
+                fname = r"/Stats/Model_Stats_NewForm_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
+                #'_' + str(scale_factor)+
+                book = wb.create_workbook(BASE_DIR + fname)
+                book = wb.write_link_details(book, links)
+                book = wb.write_demand_details(
+                    book,
+                    demand_volume,
+                    demand_paths,
+                    demand_path_edges,
+                    demand_path_lengths,
+                )
+                book = wb.write_solution(book, variables_in_sol)
+                wb.save_book(book, BASE_DIR + fname)
+                
+
+            min_obj_per_M[m] = current_objective_value
     return min_obj_per_M, kpi1_perf, kpi2_perf
 
 
