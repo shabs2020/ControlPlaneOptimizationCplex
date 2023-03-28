@@ -20,7 +20,7 @@ import logging
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
 logging.basicConfig(
-    filename=BASE_DIR + "/Log/docplexlog_largeNet_21.03_C30_until22.txt", level=logging.INFO
+    filename=BASE_DIR + "/Log/docplexlog_largeNet_21.03_C30_until22new.txt", level=logging.INFO
 )
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
@@ -248,7 +248,7 @@ def run_optimiser(network, links, scale_factor):
     total_episodes = len(network.nodes)
 
     print(total_episodes)
-    for m in range(6, 10, 4):
+    for m in range(2, 22, 4):
         logging.info("Number of control nodes {}".format(m))
         min_objective_value = 99999990.0
         d_node_random_combos = []
@@ -285,14 +285,15 @@ def run_optimiser(network, links, scale_factor):
                     )
                 print("Capacity per direct node \n")
                 print(capacity)
-                control_node_costs = sum(capacity.values())
+                rounded_capacity=[cplex_input.round_capacity(i) for i in capacity.values()]
+                control_node_costs = sum(rounded_capacity)
                 remaining_direct_nodes = list(d_nodes - capacity.keys())
                 orig_capacity = [
                     network.nodes[n]["demandVolume"] for n in remaining_direct_nodes
                 ]
                 d_capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
                 control_node_costs = control_node_costs + sum(d_capacity)
-                control_node_costs=cplex_input.round_capacity(control_node_costs)
+                
                 print("Capacity per direct node \n")
                 print(d_capacity)
                 print("node costs {}".format(control_node_costs))

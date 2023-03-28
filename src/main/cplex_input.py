@@ -170,7 +170,9 @@ def define_control_demands(
 
 def round_capacity(capacity: float):
     rounded_value = 10.0
-    if capacity > 100.0 and capacity <= 250.0:
+    if capacity > 10.0 and capacity <= 100.0:
+        rounded_value = 100.0
+    elif capacity > 100.0 and capacity <= 250.0:
         rounded_value = 250.0
     elif capacity > 250.0 and capacity <= 500.0:
         rounded_value = 500.0
