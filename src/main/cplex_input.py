@@ -88,7 +88,7 @@ def create_network(node_file, link_file):
 
     for n in graph.nodes:
         graph.nodes[n]["demandVolume"] = (
-            1.86 + 1.18 + 0.86 + 0.745 + (0.2 + 0.1) * graph.degree(n)
+            1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * graph.degree(n)
         )
     return graph
 

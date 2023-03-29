@@ -19,9 +19,9 @@ import re
 
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
-logging.basicConfig(
-    filename=BASE_DIR + "/Log/docplexlog_new_formulation.txt", level=logging.INFO
-)
+
+logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_new_formulation_29.03.txt", level=logging.INFO)
+
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
 
@@ -247,7 +247,7 @@ def model_optimizer(
         obj_kp2.extend(np.multiply(mu_p_d, path_length))
     optimizer.add_kpi(sum(obj_kp2), "path_cost")
 
-    optimizer.minimize(sum(obj_kpi1))
+    optimizer.minimize(sum(obj_kpi1)+ sum(obj_kp2))
     return optimizer
 
 
@@ -274,6 +274,8 @@ def run_optimiser(
                 network.nodes[n]["demandVolume"] * scale_factor for n in network_nodes
             ]
             capacity = [math.ceil(c) for c in orig_capacity]
+
+            print(capacity)
             control_node_costs = sum(capacity)
             min_obj_per_M[m] = control_node_costs
         else:
@@ -302,6 +304,7 @@ def run_optimiser(
                         print(path_name)
                         s_name = re.findall(source_regex, d, re.MULTILINE)[0]
                         print(s_name)
+
                         # print(network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"])
                         capacity[demand_paths["d_" + s_name][path_name][-1]] = (
                             capacity.get(
@@ -313,14 +316,16 @@ def run_optimiser(
                             )
                             + demand_volume["d_" + s_name] / 2
                         )
+
                     else:
                         d_nodes.append(d[4:])
                 remaining_direct_nodes = list(d_nodes - capacity.keys())
                 for r in remaining_direct_nodes:
                     capacity[r] = network.nodes[r]["demandVolume"] * scale_factor
 
-                total_capacity = [math.ceil(c) for c in capacity.values()]
-                control_node_costs = sum(total_capacity)
+
+                total_capacity=[math.ceil(c) for c in capacity.values()]
+                control_node_costs=sum(total_capacity)
                 # print("Capacity per indirect node \n")
                 print(capacity)
                 current_objective_value = sol.get_objective_value() + control_node_costs
@@ -351,13 +356,9 @@ def run_optimiser(
                 # Write all input to excel
                 kpi1_perf[m] = current_kp1
                 kpi2_perf[m] = [current_kp2, control_node_costs]
-                fname = (
-                    r"/Stats/Model_Stats_NewForm_M"
-                    + str(m)
-                    + "_"
-                    + str(scale_factor)
-                    + ".xlsx"
-                )
+
+                fname = r"/Stats/NewFormulation/Model_Stats_NewForm1_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
+
                 #'_' + str(scale_factor)+
                 book = wb.create_workbook(BASE_DIR + fname)
                 book = wb.write_link_details(book, links)
@@ -429,8 +430,10 @@ def plot_scaled_obj_val(f_name, sheet_name, y_label, img_name):
 
 
 def run_sol_single():
-    obj_record = BASE_DIR + "/Stats/Objectives_NewFormTest.xlsx"
-    scale_factor = 1
+
+    obj_record = BASE_DIR + "/Stats/NewFormulation/Objectives_NewFormTest11.xlsx"
+    scale_factor=1
+
     logging.info(
         "Time of Start : {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     )
