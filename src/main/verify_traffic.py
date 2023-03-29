@@ -6,6 +6,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 import os
 import pandas as pd 
 import numpy as np
+import math
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
 
@@ -80,36 +81,51 @@ def calc_nodecapacity(fname,s_factor):
     for n in demand_per_control_node:
         demand_on_node=1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(n)
         demand_per_control_node[n]+=demand_on_node
-        demand_per_control_node[n]=round(demand_per_control_node[n],0)
+        demand_per_control_node[n]=math.ceil(demand_per_control_node[n])
    
     for d in direct_nodes:
         if d not in list(demand_per_control_node.keys()):
-            demand_per_control_node[d] =round((1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(d)*s_factor),0)
+            demand_per_control_node[d] =math.ceil((1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(d)*s_factor))
     d=0
     for n in network.nodes:
-        d=d+round(((1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(n))*s_factor),0)
+        s=math.ceil((1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(n))*s_factor)
+        print("capacity of node {} is {}".format(n,s))
+        d=d+math.ceil((1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(n))*s_factor)
     print(d)
-    print(demand_per_control_node)
-    print(len(demand_per_control_node))
+    print(len(network.nodes))
+    print(len(network.edges))
+    #print(demand_per_control_node)
+    #print(len(demand_per_control_node))
     return demand_per_control_node
 
 
-# fname='Stats/Euclid_New/Model_Stats_G17_Scaled_M16_10.xlsx'
 node_cost={}
-j=2
-for i in range(2,30,4):
-    fname='Stats/Coronet30/Model_Stats_LN1_M'+ str(i) +'_1.xlsx'
+
+for i in range(2,17):
+    fname='Stats/NewFormulation/Model_Stats_NewForm_M'+ str(i) +'_1.xlsx'
     demand_per_control_node=calc_nodecapacity(fname,1)
     node_cost[i]=sum(demand_per_control_node.values())
-    book=openpyxl.load_workbook(BASE_DIR+'/'+'Stats/Coronet30/Objectives.xlsx')
+    book=openpyxl.load_workbook(BASE_DIR+'/'+'Stats/NewFormulation/Objectives_NewFormTest.xlsx')
     sheet=book['Obj_Values']
-    sheet['E'+str(j)]=sum(demand_per_control_node.values())
-    book.save(BASE_DIR+'/'+'Stats/Coronet30/Objectives.xlsx')
-    j+=1
-
+    sheet['E'+str(i)]=sum(demand_per_control_node.values())
+    book.save(BASE_DIR+'/'+'Stats/NewFormulation/Objectives_NewFormTest.xlsx')
 print(node_cost)
+# fname='Stats/Euclid_New/Model_Stats_G17_Scaled_M16_10.xlsx'
+# node_cost={}
+# j=2
+# for i in range(2,17):
+#     fname='Stats/Euclid_New/Model_Stats_G17_Scaled_M2_1.xlsx'
+#     demand_per_control_node=calc_nodecapacity(fname,1)
+#     node_cost[i]=sum(demand_per_control_node.values())
+#     book=openpyxl.load_workbook(BASE_DIR+'/'+'Stats/Coronet30/Objectives.xlsx')
+#     sheet=book['Obj_Values']
+#     sheet['E'+str(j)]=sum(demand_per_control_node.values())
+#     book.save(BASE_DIR+'/'+'Stats/Coronet30/Objectives.xlsx')
+#     j+=1
 
-print(len(demand_per_control_node))
+# print(node_cost)
+
+# print(len(demand_per_control_node))
 # node_cost={}
 # fname1='Stats/Euclid_New/Model_Stats_G17_Scaled_M2_10.xlsx'
 # for i in range(2,17):
