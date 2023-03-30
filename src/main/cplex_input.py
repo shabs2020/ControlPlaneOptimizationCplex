@@ -21,6 +21,24 @@ def draw_topology(graph, filename):
     plt.savefig(filename + ".png")
     plt.clf()
 
+def create_network_from_csv(csv_file):
+    graph = nx.Graph()
+    df = pd.read_csv(csv_file, index_col=0, header=0, delimiter=';')
+    #Add the nodes to te graph
+    for n in df.columns.to_list():
+        graph.add_node(n,)
+    #Find the edges and their pathlenghths from the dataframe
+    non_zero_cells = df[df != 0].stack().reset_index()
+    # Rename the columns
+    non_zero_cells.columns = ['source', 'dest', 'length']
+    for _, row in non_zero_cells.iterrows():
+        graph.add_edge({row['source']},{row['dest']},linkDist={row['length']})
+    # Calculate the control demand for each node
+    for n in graph.nodes:
+        graph.nodes[n]["demandVolume"] = (
+            1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * graph.degree(n)
+        )
+    return graph
 
 def create_network_from_excel(excel_file):
     df_nodes = pd.read_excel(excel_file, sheet_name="Nodes")
