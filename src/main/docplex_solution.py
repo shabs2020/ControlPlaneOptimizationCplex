@@ -20,7 +20,7 @@ import re
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
 
-logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_new_formulation_29.03_c30Scaled.txt", level=logging.INFO)
+logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_new_formulation_29.03_cost266.txt", level=logging.INFO)
 
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
@@ -363,7 +363,7 @@ def run_optimiser(
                 kpi1_perf[m] = current_kp1
                 kpi2_perf[m] = [current_kp2, control_node_costs]
 
-                fname = r"/Stats/NewFormulation/Model_Stats_C30_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
+                fname = r"/Stats/cost266/Model_Stats_Cost266_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
 
                 #'_' + str(scale_factor)+
                 book = wb.create_workbook(BASE_DIR + fname)
@@ -437,7 +437,7 @@ def plot_scaled_obj_val(f_name, sheet_name, y_label, img_name):
 
 def run_sol_single():
 
-    obj_record = BASE_DIR + "/Stats/NewFormulation/Objectives_NewFormCoronet30.xlsx"
+    obj_record = BASE_DIR + "/Stats/cost266/Objectives_NewFormcost266.xlsx"
     scale_factor=1
 
     logging.info(
@@ -477,7 +477,7 @@ def run_sol_single():
 
 
 def run_sol_with_scale():
-    obj_record = BASE_DIR + "/Stats/NewFormulation/ObjectivesC30_Scaled.xlsx"
+    obj_record = BASE_DIR + "/Stats/cost266/ObjectivesC30_Scaled.xlsx"
     SCALE_FACTORS = [1, 10, 100, 1000, 5000]
     min_obj_scaled = {}
     kpi_perf_scaled = {}
@@ -601,8 +601,8 @@ if __name__ == "__main__":
         links[e] = ["e" + str(i), network.edges[e]["linkCost"]]
         i += 1
     DIVERSITY_FACTOR = 2
-    #run_sol_single()
-    run_sol_with_scale()
+    run_sol_single()
+    #run_sol_with_scale()
 
 
 # run_sol_single()
