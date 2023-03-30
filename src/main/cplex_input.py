@@ -32,7 +32,7 @@ def create_network_from_csv(csv_file):
     # Rename the columns
     non_zero_cells.columns = ['source', 'dest', 'length']
     for _, row in non_zero_cells.iterrows():
-        graph.add_edge({row['source']},{row['dest']},linkDist={row['length']})
+        graph.add_edge(str({row['source']}),str({row['dest']}), linkDist=str({row['length']}))
     # Calculate the control demand for each node
     for n in graph.nodes:
         graph.nodes[n]["demandVolume"] = (
