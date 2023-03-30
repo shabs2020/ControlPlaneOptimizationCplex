@@ -134,8 +134,8 @@ def find_potential_paths(i:str, edges: dict, network: nx.Graph):
                     )
                 potential_path_edges["p" + str(count)] = path_edges
                 count += 1
-            del path_edges
-            del pairs
+            # del path_edges
+            # del pairs
 
     return potential_paths, potential_path_edges, path_lengths
 
