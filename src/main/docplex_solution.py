@@ -564,7 +564,12 @@ if __name__ == "__main__":
             sys.argv.pop(x)
             excel_file = BASE_DIR + "/" + arg
             print("Excel file found")
-
+        elif arg == "csvfile":
+            sys.argv.pop(x)
+            arg = sys.argv[x]
+            sys.argv.pop(x)
+            csv_file = BASE_DIR + "/" + arg
+            print("Csv file found")
         elif arg == "nodefile":
             sys.argv.pop(x)
             arg = sys.argv[x]
@@ -579,6 +584,9 @@ if __name__ == "__main__":
 
     if excel_file:
         network = cplex_input.create_network_from_excel(excel_file)
+        print("Network created")
+    elif csv_file:
+        network = cplex_input.create_network_from_csv(csv_file)
         print("Network created")
     elif node_file and edge_file:
         network = cplex_input.create_network(node_file, edge_file)
