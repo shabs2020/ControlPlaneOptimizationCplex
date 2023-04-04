@@ -124,7 +124,7 @@ def write_nested_dict(sheet, obj:dict):
     val_100=[k[1] for k in obj[100].items()]
     val_1000=[k[1] for k in obj[1000].items()]
     val_5000=[k[1] for k in obj[5000].items()]
-    val_10k=[k[1] for k in obj[10000].items()]
+    
     if(type(val_1[0]) is list):
         k=0
         for i in range(2, len(obj)+2):
@@ -146,8 +146,7 @@ def write_nested_dict(sheet, obj:dict):
             sheet['I' + str(i+2)] =val_1000[i][1]
             sheet['J' + str(i+2)] =val_5000[i][0]
             sheet['K' + str(i+2)] =val_5000[i][1]
-            sheet['L' + str(i+2)] =val_10k[i][0]
-            sheet['M' + str(i+2)] =val_10k[i][1]
+
             #print(i)
     else:
         for i in range(2, len(obj)+2):
@@ -159,7 +158,7 @@ def write_nested_dict(sheet, obj:dict):
             sheet['D' + str(i+2)] =val_100[i]
             sheet['E' + str(i+2)] =val_1000[i]
             sheet['F' + str(i+2)] =val_5000[i]
-            sheet['G' + str(i+2)] =val_10k[i]
+
     return sheet
 
 def write_objective_values_scaled(book, obj: dict, sheet_name:str):

@@ -6,6 +6,8 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 import os
 import pandas as pd 
 import numpy as np
+import math
+import cplex_input
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
 
@@ -20,7 +22,7 @@ def calc_nodecapacity(fname,s_factor):
     links_sheet=pd.read_excel(BASE_DIR + '/'+ fname, sheet_name='Links',header=0)
     variables_in_sol=pd.read_excel(BASE_DIR + '/'+ fname, sheet_name='Solution_Variables',header=0)
     variables_in_sol=variables_in_sol.dropna(axis=0)
-
+    print("direct nodes are {}".format(direct_nodes))
     path_per_source={}
     for d in variables_in_sol["name"]:
         s_name = d[4:-3].translate({ord("_"): None})
@@ -80,36 +82,79 @@ def calc_nodecapacity(fname,s_factor):
     for n in demand_per_control_node:
         demand_on_node=1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(n)
         demand_per_control_node[n]+=demand_on_node
-        demand_per_control_node[n]=round(demand_per_control_node[n],0)
+        demand_per_control_node[n]=cplex_input.round_capacity(demand_per_control_node[n])
    
     for d in direct_nodes:
         if d not in list(demand_per_control_node.keys()):
-            demand_per_control_node[d] =round((1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(d)*s_factor),0)
+            demand_per_control_node[d] =cplex_input.round_capacity((1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(d)*s_factor))
     d=0
     for n in network.nodes:
-        d=d+round(((1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(n))*s_factor),0)
+        #s=cplex_input.round_capacity(1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(n))*s_factor)
+        d+=cplex_input.round_capacity((1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * network.degree(n))*s_factor)
     print(d)
-    print(demand_per_control_node)
-    print(len(demand_per_control_node))
+
+    #print(demand_per_control_node)
+    #print(len(demand_per_control_node))
     return demand_per_control_node
 
 
+fname= 'Topologies/Coronet30.xlsx'
+df_nodes = pd.read_excel(BASE_DIR + '/'+ fname, sheet_name="Nodes")
+df_links = pd.read_excel(BASE_DIR + '/'+ fname, sheet_name="Links")
+graph = nx.Graph()
+for n in range(0, len(df_nodes)):
+    graph.add_node(
+        df_nodes["Name"][n],
+        lon=df_nodes["Longitude"][n],
+        lat=df_nodes["Latitude"][n],
+        pos=(df_nodes["Longitude"][n], df_nodes["Latitude"][n]),
+    )
+for e in range(0, len(df_links)):
+    graph.add_edge(
+        df_links["Node-A"][e],
+        df_links["Node-Z"][e],
+        linkDist=round(df_links["Length"][e], 3),
+    )
+for e in graph.edges:
+    link_cost = 1
+    graph[e[0]][e[1]]["linkCost"] = link_cost
+demand=0
+for n in graph.nodes:
+    demand+= 1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * graph.degree(n)
+avg_demand=demand/len(graph.nodes)
+print(avg_demand)
+print(cplex_input.round_capacity(avg_demand))
+
+# node_cost={}
+
+# for i in range(2,17):
+#     fname='Stats/Euclid/Model_Stats_G17_M'+ str(i) +'_1.xlsx'
+#     demand_per_control_node=calc_nodecapacity(fname,1)
+#     node_cost[i]=sum(demand_per_control_node.values())
+#     book=openpyxl.load_workbook(BASE_DIR+'/'+'Stats/NewFormulation/NewFormulation/Objectives_NewFormTest1.xlsx')
+#     sheet=book['Obj_Values']
+#     sheet['E'+str(i)]=sum(demand_per_control_node.values())
+#     book.save(BASE_DIR+'/'+'Stats/NewFormulation/NewFormulation/Objectives_NewFormTest1.xlsx')
+# print(node_cost)
+
+
+
 # fname='Stats/Euclid_New/Model_Stats_G17_Scaled_M16_10.xlsx'
-node_cost={}
-j=2
-for i in range(2,30,4):
-    fname='Stats/Coronet30/Model_Stats_LN1_M'+ str(i) +'_1.xlsx'
-    demand_per_control_node=calc_nodecapacity(fname,1)
-    node_cost[i]=sum(demand_per_control_node.values())
-    book=openpyxl.load_workbook(BASE_DIR+'/'+'Stats/Coronet30/Objectives.xlsx')
-    sheet=book['Obj_Values']
-    sheet['E'+str(j)]=sum(demand_per_control_node.values())
-    book.save(BASE_DIR+'/'+'Stats/Coronet30/Objectives.xlsx')
-    j+=1
+# node_cost={}
+# j=2
+# for i in range(2,17):
+#     fname='Stats/Euclid_New/Model_Stats_G17_Scaled_M2_1.xlsx'
+#     demand_per_control_node=calc_nodecapacity(fname,1)
+#     node_cost[i]=sum(demand_per_control_node.values())
+#     book=openpyxl.load_workbook(BASE_DIR+'/'+'Stats/Coronet30/Objectives.xlsx')
+#     sheet=book['Obj_Values']
+#     sheet['E'+str(j)]=sum(demand_per_control_node.values())
+#     book.save(BASE_DIR+'/'+'Stats/Coronet30/Objectives.xlsx')
+#     j+=1
 
-print(node_cost)
+# print(node_cost)
 
-print(len(demand_per_control_node))
+# print(len(demand_per_control_node))
 # node_cost={}
 # fname1='Stats/Euclid_New/Model_Stats_G17_Scaled_M2_10.xlsx'
 # for i in range(2,17):
