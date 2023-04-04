@@ -19,7 +19,7 @@ import re
 
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
-logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_new_formulation_29.03.txt", level=logging.INFO)
+logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_new_formulation_G50.txt", level=logging.INFO)
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
 
@@ -261,7 +261,7 @@ def run_optimiser(network, links, scale_factor, demand_volume,
             for n in network.nodes:
                 print("Capacty of n {} is {}".format(n,network.nodes[n]["demandVolume"]))
             orig_capacity = [network.nodes[n]["demandVolume"]*scale_factor for n in network_nodes]
-            capacity = [math.ceil(c) for c in orig_capacity]
+            capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
             print(capacity)
             control_node_costs = sum(capacity)
             min_obj_per_M[m] = control_node_costs
@@ -293,7 +293,7 @@ def run_optimiser(network, links, scale_factor, demand_volume,
                 for r in remaining_direct_nodes:
                     capacity[r] = network.nodes[r]["demandVolume"]*scale_factor
 
-                total_capacity=[math.ceil(c) for c in capacity.values()]
+                total_capacity=[cplex_input.round_capacity(c) for c in capacity.values()]
                 control_node_costs=sum(total_capacity)
                 # print("Capacity per indirect node \n")
                 print(capacity)
@@ -331,7 +331,7 @@ def run_optimiser(network, links, scale_factor, demand_volume,
                 # Write all input to excel
                 kpi1_perf[m] = current_kp1
                 kpi2_perf[m] = [current_kp2, control_node_costs]
-                fname = r"/Stats/NewFormulation/Model_Stats_NewForm1_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
+                fname = r"/Stats/G50/Model_Stats_NewForm1G50_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
                 #'_' + str(scale_factor)+
                 book = wb.create_workbook(BASE_DIR + fname)
                 book = wb.write_link_details(book, links)
@@ -404,7 +404,7 @@ def plot_scaled_obj_val(f_name, sheet_name, y_label, img_name):
 
 
 def run_sol_single():
-    obj_record = BASE_DIR + "/Stats/NewFormulation/Objectives_NewFormTest11.xlsx"
+    obj_record = BASE_DIR + "/Stats/G50/Objectives_NewFormTestG5011.xlsx"
     scale_factor=1
     logging.info(
         "Time of Start : {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))

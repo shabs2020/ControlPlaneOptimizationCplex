@@ -65,8 +65,8 @@ def create_network(node_file, link_file):
             lon=nodes[n][1],
             lat=nodes[n][2],
             pos=(nodes[n][1], nodes[n][2]),
-            num_of_IXPs=nodes[n][3],
-            num_of_DCs=nodes[n][4],
+            # num_of_IXPs=nodes[n][3],
+            # num_of_DCs=nodes[n][4],
             ctraffic=1,
         )
     for e in edges:
@@ -168,7 +168,9 @@ def define_control_demands(network: nx.Graph, edges: dict, scale_factor: int
 
 def round_capacity(capacity: float):
     rounded_value = 10.0
-    if capacity > 100.0 and capacity <= 250.0:
+    if capacity > 10.0 and capacity <= 100.0:
+        rounded_value = 250.0
+    elif capacity > 100.0 and capacity <= 250.0:
         rounded_value = 250.0
     elif capacity > 250.0 and capacity <= 500.0:
         rounded_value = 500.0
