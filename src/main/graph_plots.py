@@ -8,7 +8,8 @@ import pandas as pd
 import numpy as np
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
-
+hfont = {'fontname':'Times New Roman'}
+plt.rcParams.update({'font.family':'sans-serif'})
 def network_plot(networkfname, nodename):
 
     demands_sheet=pd.read_excel(BASE_DIR + '/'+ networkfname, sheet_name='Demands',header=0)
@@ -201,7 +202,7 @@ def plot_costs_contrib(fname):
     plt.savefig(BASE_DIR + "/Figures/CostsContrib_G17.png", format="png", pad_inches=0)
 
 
-def plot_scaled_obj_val(f_name):
+def plot_scaled_obj_val(f_name, outputf_name, scale_end, scale_gap):
 
     solver_data=pd.read_excel(BASE_DIR + '/'+ f_name, sheet_name='Link_Utils',header=0)
     x_values=list(solver_data['Num_Nodes'])
@@ -222,7 +223,7 @@ def plot_scaled_obj_val(f_name):
     cc_1000=c_1000+n_1000
     cc_5000=c_5000+n_5000
     print(cc_1,cc_10,cc_100,cc_1000,cc_5000)
-    plt.figure(figsize=(12, 7), dpi=120)
+    plt.figure(figsize=(11, 7.5), dpi=120)
 
     plt.plot(x_values, np.log10(cc_1), color="tab:blue", label="Scale_factor=1")
     plt.plot(x_values, np.log10(cc_10), color="tab:red", label="Scale_factor=10")
@@ -248,24 +249,88 @@ def plot_scaled_obj_val(f_name):
     min_y5= min(np.log10(cc_5000))
     plt.scatter(min_x5, min_y5,c='r')
 
-    plt.legend(fontsize=14, loc='upper left', bbox_to_anchor=(0.7, 1.08))
+    plt.legend(fontsize=18, loc='upper left', bbox_to_anchor=(0.7, 1.08))
     plt.yticks(fontsize=14)
-    plt.xticks(np.arange(1, 18, 1),fontsize=14)
-    plt.xlabel("Number of direct nodes ($m$)", fontsize=20)
-    plt.ylabel("Network  Capacity Costs [$log_{10}(C_{CP})$]", fontsize=20)
+    plt.xticks(np.arange(1, scale_end, scale_gap),fontsize=14)
+    #plt.xticks(np.arange(1, 31, 2),fontsize=14)
+    plt.xlabel("Number of direct nodes ($m$)", fontsize=22)
+    plt.ylabel("Control network costs [$log_{10}(C_{CP})$]", fontsize=22)
     plt.grid(axis = 'y')
     plt.tight_layout()
-    plt.savefig(BASE_DIR + "/Figures/Scalefactor_G17_new.png", format="png", pad_inches=0)
+    plt.savefig(BASE_DIR + "/" + outputf_name, format="png", pad_inches=0)
+
+def plot_total_capacity_costs_C30(fname, opf_name, x_scale, annot_pos:int):
+    solver_data=pd.read_excel(BASE_DIR + '/'+ fname, sheet_name='Obj_Values',header=0)
+    x_values=list(solver_data['Nodes Num.'])
+    link_utils=solver_data['LinkBW']
+    node_utils=solver_data['NodeCosts']
+    node_utils=node_utils.fillna(solver_data['Obj. Value'].iloc[-1])
+    net_capacity_costs=link_utils+node_utils
+    y_values=list(net_capacity_costs)
+    # print('link_utils{}'.format(link_utils))
+    # print('node_utils {}'.format(node_utils))
+    # print('net_capacity_costs {}'.format(net_capacity_costs))
+    plt.figure(figsize=(11, 7), dpi=120)
+    color = "tab:blue"
+    min_x = x_values[np.argmin(y_values)]
+    min_y = min(y_values)
+    min_x1 = x_values[annot_pos]
+    min_y1 = link_utils[annot_pos]
+    min_y2= node_utils[annot_pos]
+
+    plt.plot(min_x, min_y, "s", c="b" ,label="Minimum Control Network Cost (min($C_{CP}$))")
+    plt.plot(x_values, y_values, color=color, linewidth=3,label="Control Network Costs ($C_{CP}$)")
+
+    
+    plt.plot(x_values, link_utils, color='g', linewidth=2, label='Capacity Costs ($C_{L}$)')
+    plt.plot(x_values, node_utils, color='r', linewidth=2, label='Interface costs ($C_{C}$)')
+
+    plt.axvline(x=min_x,ls='--', lw=1)
+    label1="{:.2f}".format(min_y)
+    plt.annotate(label1,  # this is the text
+                      xy=(min_x, min_y), xytext=(40,15), 
+            textcoords='offset points', ha='center', va='bottom',
+            bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
+            arrowprops=dict(arrowstyle='->', 
+                            color='blue'),fontsize=14, **hfont)
+    label2="{:.2f}".format(min_y1)
+    plt.annotate(label2,  # this is the text
+                      xy=(min_x1, min_y1), xytext=(45,10), 
+            textcoords='offset points', ha='center', va='bottom',
+            bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
+            arrowprops=dict(arrowstyle='->', 
+                            color='green'),fontsize=14, **hfont)
+    label3="{:.2f}".format(min_y2)
+    plt.annotate(label3,  # this is the text
+                      xy=(min_x1, min_y2), xytext=(40,25), 
+            textcoords='offset points', ha='center', va='bottom',
+            bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
+            arrowprops=dict(arrowstyle='->', 
+                            color='red'),fontsize=14, **hfont)
+   # plt.scatter(min_x, min_y, c="r" ,label="Minimum Capacity Costs")
+    plt.legend(fontsize=18)
+    plt.yticks(fontsize=14, **hfont)
+    plt.xticks(np.arange(x_scale[0], x_scale[1], x_scale[2]),fontsize=14, **hfont)
+    plt.xlabel("Number of direct nodes ($m$)", fontsize=22, **hfont)
+    plt.ylabel("Control Network costs [cu]", fontsize=22, **hfont)
+    plt.grid(axis = 'y')
+    plt.tight_layout()
+    plt.savefig(BASE_DIR + "/" + opf_name, format="png", pad_inches=0)
 
 
 def main():
     obj_fname='/Stats/NewFormulation/NewFormulation/Objectives_NewFormTest1.xlsx'
     # plot_total_capacity_costs(obj_fname)
     # plot_costs_contrib(obj_fname)
-   # networkfname='Stats/Euclid/Model_Stats_G17_M2_1.xlsx'
-   # network_plot(networkfname, 'Hamburg')
+    # networkfname='Stats/Euclid/Model_Stats_G17_M2_1.xlsx'
+    # network_plot(networkfname, 'Hamburg')
     scale_fname='Stats/NewFormulation/Objectives_Scaled.xlsx'
-    plot_scaled_obj_val(scale_fname)
+    plot_scaled_obj_val(scale_fname, 'Figures/Scalefactor_G17_new.png', 18,1)
+    c_fname='Stats/C30_NF/Objectives_NewFormCoronet30.xlsx'
+    plot_total_capacity_costs_C30(c_fname,'Figures/NetworkCostsC30.png', [1, 31,2],14)
+    #plot_total_capacity_costs_C30(obj_fname, 'Figures/NetworkCostsG17.png',[1, 18,1],7)
+    f_name='Stats/C30_NF/ObjectivesC30_Scaled.xlsx'
+    plot_scaled_obj_val(f_name,'Figures/ScaledNetworkCostsC30.png',31,2)
 
 
 if __name__ == "__main__":

@@ -183,7 +183,46 @@ def define_control_demands(network: nx.Graph, edges: dict, scale_factor: int
 # plt.savefig("TopologyVisual.png")
 # plt.clf()
 
+def find_controller_connections(d_nodes:list, network:nx.Graph, edges:dict):
+    found_paths=set()
+    cc_paths={}
+    cc_path_edges = {}
+    cc_path_lengths = {}
+    count = 1
+    # loop over all pairs of nodes in the list of direct_nodes
+    for i in range(len(d_nodes)):
+        for j in range(i+1, len(d_nodes)):
 
+            # check if path has already been found in reverse order
+            if (d_nodes[j], d_nodes[i]) not in found_paths:
+                potential_paths={}
+                potential_path_edges = {}
+                potential_path_lengths = {}
+                # find the shortest path between the two nodes
+                for path in nx.all_simple_paths(network, source=d_nodes[i], target=d_nodes[j]):
+                    path_edges = []
+                    potential_paths["p"+str(count)]=path
+                    pairs = [path[i : i + 2] for i in range(len(path) - 1)]
+                    p_length = [network[i[0]][i[1]]["linkDist"] for i in pairs]
+                    potential_path_lengths["p" + str(count)] = sum(p_length)
+                    for pair in pairs:
+                        path_edges.append(
+                            edges[(pair[0], pair[1])][0]
+                            if (pair[0], pair[1]) in edges.keys()
+                            else edges[(pair[1], pair[0])][0]
+                        )
+                    potential_path_edges["p" + str(count)] = path_edges
+                    count += 1
+                cc_paths[d_nodes[i]]= potential_paths
+                cc_path_edges[d_nodes[i]]=potential_path_edges
+                cc_path_lengths[d_nodes[i]]=potential_path_lengths
+
+                # add the path to the set of found paths and its reverse order
+                found_paths.add((d_nodes[i], d_nodes[j]))
+                found_paths.add((d_nodes[j], d_nodes[i]))
+
+                
+    return cc_paths,cc_path_edges,cc_path_lengths
 def round_capacity(capacity: float):
     rounded_value = 10.0
     if capacity > 10.0 and capacity <= 100.0:

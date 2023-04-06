@@ -70,9 +70,9 @@ def write_demand_details(book, demand_volume: dict, demand_paths: dict, demand_p
     return book
 
 
-def write_solution(book, dataframe):
-    book.create_sheet("Solution_Variables")
-    sheet = book["Solution_Variables"]
+def write_solution(book, dataframe, sheet_name):
+    book.create_sheet(sheet_name)
+    sheet = book[sheet_name]
     for r in dataframe_to_rows(dataframe, index=True, header=True):
         sheet.append(r)
     return book
@@ -179,3 +179,32 @@ def load_workbook(f_name, sheet_name):
     for col in sheet1.columns:
         cell_values.append([data.value for data in col[1:]])
     return cell_values
+
+def write_cc_path_details(book, cc_paths: dict, cc_path_edges: dict, cc_path_lengths: dict):
+    book.create_sheet("CCConnections")
+    sheet = book["CCConnections"]
+    sheet['A1'] = "No."
+    sheet['B1'] = "Source Controller"
+    sheet['C1'] = "Destination Controller"
+    sheet['D1'] = "Path Ids"
+    sheet['E1'] = "Paths"
+    sheet['F1'] = "Links in path"
+    sheet['G1'] = "Path Lengths"
+
+    parent_row_num = 2
+    child_row_num = 2
+    for j in cc_paths:
+        sheet['A' + str(child_row_num)] = parent_row_num
+        sheet['B' + str(child_row_num)] = j
+        for p in cc_paths[j]:
+            sheet['C' + str(child_row_num)] = cc_paths[j][p][-1]
+            sheet['D' + str(child_row_num)] = p
+            sheet['E' + str(child_row_num)
+                  ] = '-'.join(s for s in cc_paths[j][p])
+            sheet['F' + str(child_row_num)
+                  ] = '-'.join(s for s in cc_path_edges[j][p])
+            sheet['G' + str(child_row_num)] = cc_path_lengths[j][p]
+            child_row_num += 1
+        #sheet.merge_cells('A2'+str(parent_row_num)+':'+'A'+ str(parent_row_num+len(demands[d][2])-1))
+        parent_row_num +=1
+    return book
