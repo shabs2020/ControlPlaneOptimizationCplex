@@ -14,10 +14,14 @@ faulthandler.enable()
 import sys
 from datetime import datetime
 import logging
+import re
+
 
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
-logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_scale.txt", level=logging.INFO)
+
+logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_ictontest.txt", level=logging.INFO)
+
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
 
@@ -41,7 +45,16 @@ cplex_input.draw_topology(network, BASE_DIR + "/Figures/Germany_17")
 DIVERSITY_FACTOR = 2 """
 
 
-def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_factor):
+def model_optimizer(
+    network,
+    links,
+    volume_scale_factor,
+    m,
+    demand_volume,
+    demand_paths,
+    demand_path_edges,
+    demand_path_lengths,
+):
     ##############################################################################
 
     #                   create a CPLEX object
@@ -69,14 +82,6 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
 
     ##############################################################################
     # direct_nodes, indirect_nodes = cplex_input.select_nodes(network, 5)
-    (
-        demand_volume,
-        demand_paths,
-        demand_path_edges,
-        demand_path_lengths,
-    ) = cplex_input.define_control_demands(
-        indirect_nodes, direct_nodes, links, network, volume_scale_factor
-    )
 
     set_links = [l[0] for l in links.values()]
     set_link_costs = [l[1] for l in links.values()]
@@ -91,13 +96,12 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
 
     ###########################################################################################################################
     para_del_e_p = {}
-    for e in set_links:
-        for d in demand_path_edges:
-            for p in demand_path_edges[d]:
-                if e in demand_path_edges[d][p]:
-                    para_del_e_p[e + "_" + d + "_" + p] = 1
-                else:
-                    para_del_e_p[e + "_" + d + "_" + p] = 0
+    for e,d in ((e,d) for e in set_links for d in demand_path_edges):
+        for p in demand_path_edges[d]:
+            if e in demand_path_edges[d][p]:
+                para_del_e_p[e + "_" + d + "_" + p] = 1
+            else:
+                para_del_e_p[e + "_" + d + "_" + p] = 0
 
     #########################################################################################################################################
 
@@ -124,9 +128,26 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
     ######################################################################################
 
     variable_name = []
-    for d in demand_path_edges:
-        variable_name.extend(["mu_" + d + "_" + p for p in demand_path_edges[d]])
+    
+    variable_name.extend(["mu_" + d + "_" + p for d in demand_path_edges for p in demand_path_edges[d]])
     var_mu_d_p = optimizer.binary_var_dict(
+        keys=variable_name, lb=0, ub=1, name=variable_name
+    )
+    ########################################################################################################################################
+
+    ######################################################################################
+
+    #                     Variable - x_d
+
+    #            binary variable if demand d is of direct node then 1, else 0
+    #              Total number of this variable N
+
+    ######################################################################################
+
+    variable_name = []
+
+    variable_name.extend(["x_" + d for d in demand_volume.keys()])
+    var_x_d = optimizer.binary_var_dict(
         keys=variable_name, lb=0, ub=1, name=variable_name
     )
 
@@ -140,11 +161,13 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
 
     ###############################################################################
     for d in set_demands:
-        for n in direct_nodes:
+        for n in network.nodes:
             constraint_name = "c1_" + d + "_" + n
             paths_to_j = [i for i in demand_paths[d] if n == demand_paths[d][i][-1]]
             vars = [var_mu_d_p["mu_" + d + "_" + i] for i in paths_to_j]
-            optimizer.add_constraint(ct=sum(vars) <= 1, ctname=constraint_name)
+            optimizer.add_constraint(
+                ct=sum(vars) <= var_x_d["x_d_" + n], ctname=constraint_name
+            )
 
     ###########################################################################################################################
     #            Constraint of equation 2: Link disjoint constraint
@@ -161,11 +184,11 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
     for e in set_links:
         for d in set_demands:
             constraint_name = "c2_" + e + "_" + d
-            for p in demand_path_edges[d]:
-                paras = [
-                    para_del_e_p[e + "_" + d + "_" + p] for p in demand_path_edges[d]
-                ]
-                vars = [var_mu_d_p["mu_" + d + "_" + p] for p in demand_path_edges[d]]
+
+            paras = [
+                para_del_e_p[e + "_" + d + "_" + p] for p in demand_path_edges[d]
+            ]
+            vars = [var_mu_d_p["mu_" + d + "_" + p] for p in demand_path_edges[d]]
             prod_vars_paras = np.multiply(paras, vars)
             obj_kpi1.extend(
                 np.array(prod_vars_paras)
@@ -174,12 +197,12 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
             )
             # print("length of kp1 {}".format(len(obj_kpi1)))
             optimizer.add_constraint(
-                ct=sum(prod_vars_paras) <= 1, ctname=constraint_name
+                ct=sum(prod_vars_paras) <= 1 - var_x_d["x_" + d], ctname=constraint_name
             )
         # print(obj_kpi1)
 
     ###########################################################################################################################
-    #            Constraint of equation 2: Path Diversity constraint
+    #            Constraint of equation 3: Path Diversity constraint
     #
     #                 for all demands d
     #                       sum(p ∈ p(d)) mu_p^d = n_d (Diversity Factor)
@@ -191,8 +214,21 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
         constraint_name = "c3_" + "_" + d
         vars = [var_mu_d_p["mu_" + d + "_" + p] for p in demand_path_edges[d]]
         optimizer.add_constraint(
-            ct=sum(vars) == DIVERSITY_FACTOR, ctname=constraint_name
+            ct=sum(vars) == DIVERSITY_FACTOR * (1 - var_x_d["x_" + d]),
+            ctname=constraint_name,
         )
+    ###########################################################################################################################
+    #            Constraint of equation 4: number of control plane interfaces
+    #
+
+    #                       sum(d ∈ N) x_d = m
+    #           Total number of constraints of equation 1: |N|
+
+    ################################################################################
+
+    constraint_name = "c4_" + "_" + str(m)
+    vars = [var_x_d["x_d_" + d] for d in network.nodes]
+    optimizer.add_constraint(ct=sum(vars) == m, ctname=constraint_name)
 
     ###########################################################################################################################
     #         Objective Function
@@ -210,128 +246,270 @@ def model_optimizer(network, links, direct_nodes, indirect_nodes, volume_scale_f
         obj_kp2.extend(np.multiply(mu_p_d, path_length))
     optimizer.add_kpi(sum(obj_kp2), "path_cost")
 
-    optimizer.minimize(sum(obj_kpi1) + sum(obj_kp2))
-    return (
-        optimizer,
-        demand_volume,
-        demand_paths,
-        demand_path_edges,
-        demand_path_lengths,
+    optimizer.minimize(sum(obj_kpi1)+ sum(obj_kp2))
+    return optimizer
+
+def model_optimiser_controller(cc_paths:dict, cc_path_edges:dict, cc_path_lengths:dict):
+    set_links = [l[0] for l in links.values()]
+    ##############################################################################
+
+    #                   create a CPLEX object
+
+    ##############################################################################
+
+    optimizer = Model(name="optmize routing of controller-to-controller conn.")
+    CPLEX_LP_PARAMETERS = {
+        "benders.tolerances.feasibilitycut": 1e-9,
+        "benders.tolerances.optimalitycut": 1e-9,
+    }
+
+    optimizer.parameters.barrier.algorithm = 3
+    optimizer.parameters.optimalitytarget = 3
+    optimizer.parameters.benders.tolerances.feasibilitycut = CPLEX_LP_PARAMETERS[
+        "benders.tolerances.feasibilitycut"
+    ]
+    optimizer.parameters.benders.tolerances.optimalitycut = CPLEX_LP_PARAMETERS[
+        "benders.tolerances.optimalitycut"
+    ]
+    ###########################################################################################################################
+
+    #                                        Parameter  - δedip
+
+    #              Boolean parameter equals to 1 if if link e belongs to  potential path p for demand d;
+    #                                        otherwise 0
+    #                     Total number of this variable is: E * sum(d ∈ D) |P(d)|
+
+    ###########################################################################################################################
+    para_del_e_p = {}
+    for e,j in ((e,j) for e in set_links for j in cc_path_edges):
+        for p in cc_path_edges[j]:
+            if e in cc_path_edges[j][p]:
+                para_del_e_p[e + "_" + j + "_" + p] = 1
+            else:
+                para_del_e_p[e + "_" + j + "_" + p] = 0
+     ######################################################################################
+
+    #                     Variable - mu_p^j
+
+    #            binary variable if demand d is utilizing path p
+    #              Total number of this variable D*sum P(d)
+
+    ######################################################################################
+
+    variable_name = []
+    
+    variable_name.extend(["mu_" + d + "_" + p for d in cc_paths for p in cc_paths[d]])
+    var_mu_d_p = optimizer.binary_var_dict(
+        keys=variable_name, lb=0, ub=1, name=variable_name
     )
+    ########################################################################################################################################
 
+    ###########################################################################################################################
+    #            Constraint of equation 1: Node disjoint constraint
+    #
+    #            for all  direct nodes j
 
-def run_optimiser(network, links, scale_factor):
+    #           sum(p ∈ p(j->j'))mu_p^j <= 1
+    #           Total number of constraints of equation 1: |M| + |M|
+
+    ###############################################################################
+
+    for j,k in ((j,k) for j in cc_paths.keys() for k in cc_paths.keys() if j!=k):
+        constraint_name = "c1_" + j + "_" + k
+        paths_j_to_k=[path for path in cc_paths[j] if k==cc_paths[j][path][-1]]
+        vars = [var_mu_d_p["mu_" + j + "_" + i] for i in paths_j_to_k]
+        optimizer.add_constraint(ct=sum(vars)<=1,ctname=constraint_name)
+    ###########################################################################################################################
+    #            Constraint of equation 2: Path Diversity constraint
+    #
+  #            for all  direct nodes j
+    #                       sum(p ∈ p(j)) mu_p^j = n_d (Diversity Factor)
+    #           Total number of constraints of equation 1: |M|
+
+    ###############################################################################
+
+    for j in cc_path_edges:
+        constraint_name = "c3_" + "_" + j
+        vars = [var_mu_d_p["mu_" + j + "_" + p] for p in cc_path_edges[j]]
+        optimizer.add_constraint(
+            ct=sum(vars) == 2 ,
+            ctname=constraint_name
+        )
+     ###########################################################################################################################
+    #            Constraint of equation 3: Link disjoint constraint
+    #
+    #            for all links e
+    #                 for all controllers j
+    #                       sum(p ∈ p(j)) δedip*mu_p^j <= 1
+    #           Total number of constraints of equation 1: |E|*|M|*|P(D)|
+
+    ###############################################################################
+    # sum(p ∈ p(d)) δedip*mu_p^d is also part of the objective function
+    # hence part of code is used to deifne the objective kpi
+    obj_kpi1 = []
+
+    for e,j in ((e,j) for e in set_links for j in cc_path_edges):
+        constraint_name = "c2_" + e + "_" + j
+        paras = [para_del_e_p[e + "_" + j + "_" + p] for p in cc_path_edges[j]]
+        vars = [var_mu_d_p["mu_" + j + "_" + p] for p in cc_path_edges[j]]
+        optimizer.add_constraint(
+                ct=sum(np.multiply(paras, vars)) <= 1, ctname=constraint_name
+            )
+
+   ###########################################################################################################################
+    #         Objective Function
+
+    #            F(M)=   sum(d ∈ O) *sum(p ∈ p(d)) λ_p*mu_p^d
+
+    ###############################################################################
+
+    obj_kp2=[np.dot([var_mu_d_p["mu_" + j + "_" + p] for p in cc_path_lengths[j]], [cc_path_lengths[j][p] for p in cc_path_lengths[j]]) for j in cc_path_lengths]
+    optimizer.add_kpi(sum(obj_kp2), "path_cost")
+    optimizer.minimize(sum(obj_kp2))
+    return optimizer
+
+def run_optimiser(
+    network,
+    links,
+    scale_factor,
+    demand_volume,
+    demand_paths,
+    demand_path_edges,
+    demand_path_lengths,
+):
+    source_regex = r"mu_d_(.*)_"
+    path_regex = r"mu_d_.*_(.*)"
     network_nodes = list(network.nodes)
     min_obj_per_M = {}
     kpi1_perf = {}
     kpi2_perf = {}
     total_episodes = len(network.nodes)
     print(total_episodes)
-    for m in range(2, total_episodes + 1):
+    for m in range(2, 3):
         if m == total_episodes:
-            orig_capacity = [network.nodes[n]["demandVolume"] for n in network_nodes]
-            capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
+            orig_capacity = [
+                network.nodes[n]["demandVolume"] * scale_factor for n in network_nodes
+            ]
+            capacity = [math.ceil(c) for c in orig_capacity]
+
+            print(capacity)
             control_node_costs = sum(capacity)
             min_obj_per_M[m] = control_node_costs
         else:
-            min_objective_value = 99999990.00
-            for d_node_combos in combinations(network_nodes, m):
-                capacity = {}
-                d_nodes = list(d_node_combos)
-                ind_nodes = list(set(list(network.nodes)).difference(d_nodes))
-                # Call Optimizer
-                (
-                    optimizer,
+            capacity = {}
+
+            # Call Optimizer
+
+            optimizer = model_optimizer(
+                network,
+                links,
+                scale_factor,
+                m,
+                demand_volume,
+                demand_paths,
+                demand_path_edges,
+                demand_path_lengths,
+            )
+            sol = optimizer.solve(log_output=True)
+            if optimizer.solve_details.status == "integer optimal solution":
+                variables_in_sol = sol.as_df()
+                print(variables_in_sol)
+                d_nodes = []
+                for d in variables_in_sol["name"]:
+                    if "mu_d" in d:
+                        path_name = re.findall(path_regex, d, re.MULTILINE)[0]
+                        print(path_name)
+                        s_name = re.findall(source_regex, d, re.MULTILINE)[0]
+                        print(s_name)
+
+                        # print(network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"])
+                        capacity[demand_paths["d_" + s_name][path_name][-1]] = (
+                            capacity.get(
+                                demand_paths["d_" + s_name][path_name][-1],
+                                network.nodes[
+                                    demand_paths["d_" + s_name][path_name][-1]
+                                ]["demandVolume"]
+                                * scale_factor,
+                            )
+                            + demand_volume["d_" + s_name] / 2
+                        )
+
+                    else:
+                        d_nodes.append(d[4:])
+                remaining_direct_nodes = list(d_nodes - capacity.keys())
+                for r in remaining_direct_nodes:
+                    capacity[r] = network.nodes[r]["demandVolume"] * scale_factor
+
+
+                total_capacity=[math.ceil(c) for c in capacity.values()]
+                control_node_costs=sum(total_capacity)
+                # print("Capacity per indirect node \n")
+                print(capacity)
+                current_objective_value = sol.get_objective_value() + control_node_costs
+                logging.info(
+                    "Solution status is {}".format(optimizer.solve_details.status)
+                )
+                logging.info(
+                    "Objective value for the solution is {}".format(
+                        current_objective_value
+                    )
+                )
+                logging.info("Number of variables {}".format(sol.number_of_var_values))
+                print("Solution status is {}".format(optimizer.solve_details.status))
+                print(
+                    "Objective value for the solution is {}".format(
+                        current_objective_value
+                    )
+                )
+                print("Number of variables {}".format(sol.number_of_var_values))
+
+                current_kp1 = sol.kpi_value_by_name("link_util")
+                current_kp2 = sol.kpi_value_by_name("path_cost")
+
+                logging.info("variables_in_sol {}".format(variables_in_sol))
+                logging.info("Demand details {}".format(demand_volume))
+                logging.info("demand_paths {}".format(demand_paths))
+
+                # Write all input to excel
+                kpi1_perf[m] = current_kp1
+                kpi2_perf[m] = [current_kp2, control_node_costs]
+
+                fname = r"/Stats/Model_Stats_ICTON_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
+
+                #'_' + str(scale_factor)+
+                book = wb.create_workbook(BASE_DIR + fname)
+                book = wb.write_link_details(book, links)
+                book = wb.write_demand_details(
+                    book,
                     demand_volume,
                     demand_paths,
                     demand_path_edges,
                     demand_path_lengths,
-                ) = model_optimizer(network, links, d_nodes, ind_nodes, scale_factor)
-                sol = optimizer.solve(log_output=True)
-                if optimizer.solve_details.status == "integer optimal solution":
-                    variables_in_sol = sol.as_df()
-                    for d in variables_in_sol["name"]:
-                        path_name = d[-3:].translate({ord("_"): None})
-                        s_name = d[4:-3].translate({ord("_"): None})
-                        capacity[demand_paths["d_" + s_name][path_name][-1]] = (
-                            demand_volume["d_" + s_name] / 2 + network.nodes[demand_paths["d_" + s_name][path_name][-1]]["demandVolume"]
-                            if demand_paths["d_" + s_name][path_name][-1]
-                            not in capacity.keys()
-                            else capacity[demand_paths["d_" + s_name][path_name][-1]]
-                            + demand_volume["d_" + s_name] / 2
-                        )
-                    print("Capacity per indirect node \n")
-                    print(capacity)
-                    control_node_costs = cplex_input.round_capacity(
-                        sum(capacity.values())
-                    ) * len(capacity)
-                    remaining_direct_nodes=list(d_nodes-capacity.keys())
-                    orig_capacity = [network.nodes[n]["demandVolume"] for n in remaining_direct_nodes]
-                    d_capacity = [cplex_input.round_capacity(c) for c in orig_capacity]
-                    control_node_costs = control_node_costs + sum(d_capacity)
-                    print("Capacity per direct node \n")
-                    print(d_capacity)
-                    print("node costs {}".format(control_node_costs))
-                    current_objective_value = (
-                        sol.get_objective_value() + control_node_costs
-                    )
-                    logging.info(
-                        "Solution status is {}".format(optimizer.solve_details.status)
-                    )
-                    logging.info(
-                        "Objective value for the solution is {}".format(
-                            current_objective_value
-                        )
-                    )
-                    logging.info(
-                        "Number of variables {}".format(sol.number_of_var_values)
-                    )
-                    print(
-                        "Solution status is {}".format(optimizer.solve_details.status)
-                    )
-                    print(
-                        "Objective value for the solution is {}".format(
-                            current_objective_value
-                        )
-                    )
-                    print(
-                        "Current Minimum value for the solution is {}".format(
-                            min_objective_value
-                        )
-                    )
-                    # print("Number of variables {}".format(sol.number_of_var_values))
-                    if min_objective_value > current_objective_value:
-                        min_objective_value = current_objective_value
-                        current_kp1 = sol.kpi_value_by_name("link_util")
-                        current_kp2 = sol.kpi_value_by_name("path_cost")
+                )
+                book = wb.write_solution(book, variables_in_sol,"Solution_Variables")
+                wb.save_book(book, BASE_DIR + fname)
 
-                        logging.info("variables_in_sol {}".format(variables_in_sol))
-                        logging.info("Demand details {}".format(demand_volume))
-                        logging.info("demand_paths {}".format(demand_paths))
+                # optimize the controller-to-controller connections 
+                cc_paths, cc_path_edges, cc_path_lengths = cplex_input.find_controller_connections(d_nodes,network,links)
+                print("cc_paths, cc_path_edges, cc_path_lengths")
+                print(cc_paths, cc_path_edges, cc_path_lengths)
+                cc_optimizer=model_optimiser_controller(cc_paths, cc_path_edges, cc_path_lengths)
+                cc_sol = cc_optimizer.solve(log_output=True)
+                print("cc_optimizer.solve_details {}".format(cc_optimizer.solve_details.status))
+                if cc_optimizer.solve_details.status == "integer optimal solution":
+                    variables_in_cc_sol = cc_sol.as_df()
+                    book = wb.write_cc_path_details(
+                        book,
+                        cc_paths,
+                        cc_path_edges,
+                        cc_path_lengths,
+                    )
+                    book = wb.write_solution(book, variables_in_cc_sol,"CCSol_Variables")
+                    wb.save_book(book, BASE_DIR + fname)
+  
 
-                        # Write all input to excel
-                        kpi1_perf[m] = current_kp1
-                        kpi2_perf[m] = [current_kp2, control_node_costs]
-                        fname = r"/Stats/Model_Stats_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
-                        #'_' + str(scale_factor)+
-                        book = wb.create_workbook(BASE_DIR + fname)
-                        book = wb.write_link_details(book, links)
-                        book = wb.write_demand_details(
-                            book,
-                            demand_volume,
-                            demand_paths,
-                            demand_path_edges,
-                            demand_path_lengths,
-                        )
-                        book = wb.write_solution(book, variables_in_sol)
-                        wb.save_book(book, BASE_DIR + fname)
-                        print(
-                            "Current Minimum value after compute for the solution is {}".format(
-                                min_objective_value
-                            )
-                        )
 
-                min_obj_per_M[m] = min_objective_value
+            min_obj_per_M[m] = current_objective_value
     return min_obj_per_M, kpi1_perf, kpi2_perf
 
 
@@ -389,91 +567,101 @@ def plot_scaled_obj_val(f_name, sheet_name, y_label, img_name):
 
 
 def run_sol_single():
-    obj_record = BASE_DIR + "/Stats/Objectives.xlsx"
 
-    if os.path.exists(obj_record):
-        plot_min_obj_value(obj_record)
+    obj_record = BASE_DIR + "/Stats/Objectives_ICTONTEST.xlsx"
+    scale_factor=1
 
-    else:
-        logging.info(
-            "Time of Start : {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+    logging.info(
+        "Time of Start : {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+    )
+    print("Time of Start: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
+    (
+        demand_volume,
+        demand_paths,
+        demand_path_edges,
+        demand_path_lengths,
+    ) = cplex_input.define_control_demands(network, links, scale_factor)
+    min_obj_per_M, kpi1_perf, kpi2_perf = run_optimiser(
+        network,
+        links,
+        1,
+        demand_volume,
+        demand_paths,
+        demand_path_edges,
+        demand_path_lengths,
+    )
+    print(kpi1_perf)
+    print(kpi2_perf)
+    print(min_obj_per_M)
+    book = wb.create_workbook(obj_record)
+    book = wb.write_objective_values(book, min_obj_per_M, kpi1_perf, kpi2_perf)
+    wb.save_book(book, obj_record)
+    # plot_min_obj_value(obj_record)
+    print(
+        "Time of completetion: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+    )
+    logging.info(
+        "Time of Completetion Traffic: {}".format(
+            datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         )
-        print("Time of Start: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
-        min_obj_per_M, kpi1_perf, kpi2_perf = run_optimiser(network, links, 1)
-        print(kpi1_perf)
-        print(kpi2_perf)
-        print(min_obj_per_M)
-        book = wb.create_workbook(obj_record)
-        book = wb.write_objective_values(book, min_obj_per_M, kpi1_perf, kpi2_perf)
-        wb.save_book(book, obj_record)
-        plot_min_obj_value(obj_record)
-        print(
-            "Time of completetion: {}".format(
-                datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            )
-        )
-        logging.info(
-            "Time of Completetion Traffic: {}".format(
-                datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            )
-        )
-
+    )
 
 
 def run_sol_with_scale():
-    obj_record = BASE_DIR + "/Stats/Objectives_Scaled.xlsx"
+    obj_record = BASE_DIR + "/Stats/NewFormulation/Objectives_Scaled.xlsx"
+    SCALE_FACTORS = [1, 10, 100, 1000, 5000]
+    min_obj_scaled = {}
+    kpi_perf_scaled = {}
+    kpi2_perf_scaled = {}
 
-    img_name1 = BASE_DIR + "/Figures/Minimumobjective_Scaled.png"
-    img_name2 = BASE_DIR + "/Figures/LinksUtilization_Scaled.png"
-    if os.path.exists(obj_record):
-        plot_scaled_obj_val(obj_record, "Obj_Values", "Log(Network Costs)", img_name1)
-        plot_scaled_obj_val(
-            obj_record, "Link_Utils", "Link_Utilization (Y_e)", img_name2
-        )
-
-    else:
-        SCALE_FACTORS = [1, 10, 100, 1000, 5000, 10000]
-        min_obj_scaled = {}
-        kpi_perf_scaled = {}
-        kpi2_perf_scaled={}
-        for s_factor in SCALE_FACTORS:
-            logging.info(
-                "Time of Start Scaled Traffic: {}".format(
-                    datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                )
-            )
-            print(
-                "Time of Start Scaled Traffic: {}".format(
-                    datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                )
-            )
-            min_obj_per_M, kpi1_perf, kpi2_perf = run_optimiser(network, links, s_factor)
-            min_obj_scaled[s_factor] = min_obj_per_M
-            kpi_perf_scaled[s_factor] = kpi1_perf
-            kpi2_perf_scaled[s_factor] = kpi2_perf
-        print(min_obj_scaled)
-        print(kpi_perf_scaled)
-        print(kpi2_perf_scaled)
-        book = wb.create_workbook(obj_record)
-        book = wb.write_objective_values_scaled(book, min_obj_scaled, "Obj_Values")
-        book = wb.write_objective_values_scaled(book, kpi_perf_scaled, "Link_Utils")
-        book = wb.write_objective_values_scaled(book, kpi2_perf_scaled, "PL_NodeCosts")
-        wb.save_book(book, obj_record)
-        print(
-            "Time of completetion: {}".format(
-                datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            )
-        )
+    for s_factor in SCALE_FACTORS:
+        (
+            demand_volume,
+            demand_paths,
+            demand_path_edges,
+            demand_path_lengths,
+        ) = cplex_input.define_control_demands(network, links, s_factor)
         logging.info(
-            "Time of Completetion Scaled Traffice: {}".format(
+            "Time of Start Scaled Traffic: {}".format(
                 datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             )
         )
-
-        plot_scaled_obj_val(obj_record, "Obj_Values", "Log(Network Costs)", img_name1)
-        plot_scaled_obj_val(
-            obj_record, "Link_Utils", "Link_Utilization (Y_e)", img_name2
+        print(
+            "Time of Start Scaled Traffic: {}".format(
+                datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            )
         )
+        min_obj_per_M, kpi1_perf, kpi2_perf = run_optimiser(
+            network,
+            links,
+            s_factor,
+            demand_volume,
+            demand_paths,
+            demand_path_edges,
+            demand_path_lengths,
+        )
+        min_obj_scaled[s_factor] = min_obj_per_M
+        kpi_perf_scaled[s_factor] = kpi1_perf
+        kpi2_perf_scaled[s_factor] = kpi2_perf
+    print(min_obj_scaled)
+    print(kpi_perf_scaled)
+    print(kpi2_perf_scaled)
+    book = wb.create_workbook(obj_record)
+    book = wb.write_objective_values_scaled(book, min_obj_scaled, "Obj_Values")
+    book = wb.write_objective_values_scaled(book, kpi_perf_scaled, "Link_Utils")
+    book = wb.write_objective_values_scaled(book, kpi2_perf_scaled, "PL_NodeCosts")
+    wb.save_book(book, obj_record)
+    print(
+        "Time of completetion: {}".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+    )
+    logging.info(
+        "Time of Completetion Scaled Traffice: {}".format(
+            datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        )
+    )
+
+"""     plot_scaled_obj_val(obj_record, "Obj_Values", "Log(Network Costs)", img_name1)
+    plot_scaled_obj_val(obj_record, "Link_Utils", "Link_Utilization (Y_e)", img_name2) """
 
 
 def print_help():
@@ -507,7 +695,12 @@ if __name__ == "__main__":
             sys.argv.pop(x)
             excel_file = BASE_DIR + "/" + arg
             print("Excel file found")
-
+        elif arg == "csvfile":
+            sys.argv.pop(x)
+            arg = sys.argv[x]
+            sys.argv.pop(x)
+            csv_file = BASE_DIR + "/" + arg
+            print("Csv file found")
         elif arg == "nodefile":
             sys.argv.pop(x)
             arg = sys.argv[x]
@@ -526,18 +719,17 @@ if __name__ == "__main__":
     elif node_file and edge_file:
         network = cplex_input.create_network(node_file, edge_file)
         print("Network created")
+    elif csv_file:
+        network = cplex_input.create_network_from_csv(csv_file)
+        print("Network created")
     else:
         print("Node or Edge Information missing")
         exit(1)
 
-    links = {}
-    i = 0
-    for e in network.edges:
-        links[e] = ["e" + str(i), network.edges[e]["linkCost"]]
-        i += 1
+    links={e: ['e'+ str(i), network.edges[e]['linkCost']] for i,e in enumerate(network.edges) }
+
     DIVERSITY_FACTOR = 2
     run_sol_single()
-    #run_sol_with_scale()
-
+    # run_sol_with_scale()
 
 
