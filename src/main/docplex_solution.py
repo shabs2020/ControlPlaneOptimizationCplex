@@ -316,10 +316,10 @@ def run_optimiser(
                         capacity[demand_paths["d_" + s_name][path_name][-1]] = (
                             capacity.get(
                                 demand_paths["d_" + s_name][path_name][-1],
-                                network.nodes[
+                                (network.nodes[
                                     demand_paths["d_" + s_name][path_name][-1]
                                 ]["demandVolume"]
-                                * scale_factor,
+                                * scale_factor),
                             )
                             + demand_volume["d_" + s_name] / 2
                         )
@@ -328,11 +328,13 @@ def run_optimiser(
                         d_nodes.append(d[4:])
                 remaining_direct_nodes = list(d_nodes - capacity.keys())
                 for r in remaining_direct_nodes:
+
                     capacity[r] = network.nodes[r]["demandVolume"] * scale_factor
                 for r in capacity:
                     capacity[r]=math.ceil(capacity[r])
                 #total_capacity=[c for c in capacity.values()]
                 #control_node_costs=sum(total_capacity)
+
                 # print("Capacity per indirect node \n")
                 control_node_costs = m*final_node_costs
                 print(capacity)
