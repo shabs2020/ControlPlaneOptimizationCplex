@@ -235,7 +235,7 @@ def plot_scaled_obj_val(f_name, outputf_name, scale_end, scale_gap):
 
     min_x1 = x_values[np.argmin(np.log10(cc_1))]
     min_y1= min(np.log10(cc_1))
-    plt.scatter(min_x1, min_y1,c='r')
+    plt.scatter(min_x1, min_y1,c='r',label="Minimum Control Network Cost (min($C_{CP}$))")
     min_x2 = x_values[np.argmin(np.log10(cc_10))]
     min_y2= min(np.log10(cc_10))
     plt.scatter(min_x2, min_y2,c='r')
@@ -249,7 +249,7 @@ def plot_scaled_obj_val(f_name, outputf_name, scale_end, scale_gap):
     min_y5= min(np.log10(cc_5000))
     plt.scatter(min_x5, min_y5,c='r')
 
-    plt.legend(fontsize=18, loc='upper left', bbox_to_anchor=(0.7, 1.08))
+    plt.legend(fontsize=18, loc='upper right')
     plt.yticks(fontsize=14)
     plt.xticks(np.arange(1, scale_end, scale_gap),fontsize=14)
     #plt.xticks(np.arange(1, 31, 2),fontsize=14)
@@ -288,21 +288,21 @@ def plot_total_capacity_costs_C30(fname, opf_name, x_scale, annot_pos:int):
     plt.axvline(x=min_x,ls='--', lw=1)
     label1="{:.2f}".format(min_y)
     plt.annotate(label1,  # this is the text
-                      xy=(min_x, min_y), xytext=(40,15), 
+                      xy=(min_x, min_y), xytext=(40,30), 
             textcoords='offset points', ha='center', va='bottom',
             bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
             arrowprops=dict(arrowstyle='->', 
                             color='blue'),fontsize=14, **hfont)
     label2="{:.2f}".format(min_y1)
     plt.annotate(label2,  # this is the text
-                      xy=(min_x1, min_y1), xytext=(45,10), 
+                      xy=(min_x1, min_y1), xytext=(40,10), 
             textcoords='offset points', ha='center', va='bottom',
             bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
             arrowprops=dict(arrowstyle='->', 
                             color='green'),fontsize=14, **hfont)
     label3="{:.2f}".format(min_y2)
     plt.annotate(label3,  # this is the text
-                      xy=(min_x1, min_y2), xytext=(40,25), 
+                      xy=(min_x1, min_y2), xytext=(50,-25), 
             textcoords='offset points', ha='center', va='bottom',
             bbox=dict(boxstyle='round,pad=0.4', fc='white', alpha=0.2),
             arrowprops=dict(arrowstyle='->', 
@@ -317,21 +317,120 @@ def plot_total_capacity_costs_C30(fname, opf_name, x_scale, annot_pos:int):
     plt.tight_layout()
     plt.savefig(BASE_DIR + "/" + opf_name, format="png", pad_inches=0)
 
+def plot_cc_vs_m(fname, opf_name, x_scale):
+    solver_data=pd.read_excel(BASE_DIR + '/'+ fname, sheet_name='Obj_Values',header=0)
+    x_values=list(solver_data['Nodes Num.'])
+    link_utils=solver_data['LinkBW']
+    node_utils=solver_data['NodeCosts']
+    node_utils=node_utils.fillna(solver_data['Obj. Value'].iloc[-1])
+    net_capacity_costs=link_utils+node_utils
+    n_u1=[i*0.10 for i in node_utils]
+    n_u2=[i*0.20 for i in node_utils]
+    n_u3=[i*0.30 for i in node_utils]
+    n_u4=[i*0.40 for i in node_utils]
+    n_u5=[i*0.50 for i in node_utils]
+    n_u6=[i*0.60 for i in node_utils]
+    n_u7=[i*0.70 for i in node_utils]
+    n_u8=[i*0.80 for i in node_utils]
+    n_u9=[i*0.90 for i in node_utils]
+    y_values1=list(net_capacity_costs)
+    y_values2=list(link_utils+n_u1)
+    y_values3=list(link_utils+n_u2)
+    y_values4=list(link_utils+n_u3)
+    y_values5=list(link_utils+n_u4)
+    y_values6=list(link_utils+n_u5)
+    y_values7=list(link_utils+n_u6)
+    y_values8=list(link_utils+n_u7)
+    y_values9=list(link_utils+n_u8)
+    y_values10=list(link_utils+n_u9)
+
+    del x_values[-(len(x_values)-x_scale[1]):]
+    del y_values1[-(len(y_values1)-x_scale[1]):]
+    del y_values2[-(len(y_values2)-x_scale[1]):]
+    del y_values3[-(len(y_values3)-x_scale[1]):]
+    del y_values4[-(len(y_values4)-x_scale[1]):]
+    del y_values5[-(len(y_values5)-x_scale[1]):]
+    del y_values6[-(len(y_values6)-x_scale[1]):]
+    del y_values7[-(len(y_values7)-x_scale[1]):]
+    del y_values8[-(len(y_values8)-x_scale[1]):]
+    del y_values9[-(len(y_values9)-x_scale[1]):]
+    del y_values10[-(len(y_values10)-x_scale[1]):]
+    plt.figure(figsize=(11, 6.5), dpi=120)
+    
+    plt.plot(x_values, y_values2, color="tab:red", label=r"$\alpha=0.1$")
+    plt.plot(x_values, y_values3, color="tab:green", label=r"$\alpha=0.2$")
+    plt.plot(x_values,y_values4, color="tab:brown", label=r"$\alpha=0.3$")
+    plt.plot(x_values, y_values5, color="tab:orange", label=r"$\alpha=0.4$")
+    plt.plot(x_values, y_values6, color="tab:cyan", label=r"$\alpha=0.5$")
+    plt.plot(x_values,y_values7, color="tab:purple", label=r"$\alpha=0.6$")
+    plt.plot(x_values, y_values8, color="tab:gray", label=r"$\alpha=0.7$")
+    plt.plot(x_values, y_values9, color="tab:pink", label=r"$\alpha=0.8$")
+    plt.plot(x_values,y_values10, color="tab:olive", label=r"$\alpha=0.9$")
+    plt.plot(x_values,y_values1, color="tab:blue", label=r"$\alpha =1$")
+     # plot.yscale('log')
+    # plot.yticks(np.arange(2000, 4000,250))
+
+    min_x1 = x_values[np.argmin(y_values1)]
+    min_y1= min(y_values1)
+    plt.scatter(min_x1, min_y1,c='r',label="Minimum Control Network Cost (min($C_{CP}$))")
+    min_x2 = x_values[np.argmin(y_values2)]
+    min_y2= min(y_values2)
+    plt.scatter(min_x2, min_y2,c='r')
+    min_x3 = x_values[np.argmin(y_values3)]
+    min_y3= min(y_values3)
+    plt.scatter(min_x3, min_y3,c='r')
+    min_x4 = x_values[np.argmin(y_values4)]
+    min_y4= min(y_values4)
+    plt.scatter(min_x4, min_y4,c='r')
+    min_x5 = x_values[np.argmin(y_values5)]
+    min_y5= min(y_values5)
+    plt.scatter(min_x5, min_y5,c='r')
+    min_x6 = x_values[np.argmin(y_values6)]
+    min_y6= min(y_values6)
+    plt.scatter(min_x6, min_y6,c='r')
+    min_x7 = x_values[np.argmin(y_values7)]
+    min_y7= min(y_values7)
+    plt.scatter(min_x7, min_y7,c='r')
+    min_x8 = x_values[np.argmin(y_values8)]
+    min_y8= min(y_values8)
+    plt.scatter(min_x8, min_y8,c='r')
+    min_x9 = x_values[np.argmin(y_values9)]
+    min_y9= min(y_values9)
+    plt.scatter(min_x9, min_y9,c='r')
+    min_x10 = x_values[np.argmin(y_values10)]
+    min_y10= min(y_values10)
+    plt.scatter(min_x10, min_y10,c='r')
+
+
+   # plt.scatter(min_x, min_y, c="r" ,label="Minimum Capacity Costs")
+    plt.margins(x=0, y=.5)
+    plt.legend(ncol=2,fontsize=18)
+    plt.yticks(fontsize=14, **hfont)
+    plt.xticks(np.arange(x_scale[0], x_scale[1]+2, x_scale[2]),fontsize=14, **hfont)
+    plt.xlabel("Number of direct nodes ($m$)", fontsize=22, **hfont)
+    plt.ylabel("Control Network costs ($C_{CP}$) [cu]", fontsize=22, **hfont)
+    plt.grid(axis = 'y')
+    plt.tight_layout()
+    plt.savefig(BASE_DIR + "/" + opf_name, format="png", pad_inches=0)
 
 def main():
-    obj_fname='/Stats/NewFormulation/NewFormulation/Objectives_NewFormTest1.xlsx'
+    #obj_fname='/Stats/NewFormulation/NewFormulation/Objectives_NewFormTest1.xlsx'
+    obj_fname='/Stats/G17_correct/Objectives_NewFormG1712.04.xlsx'
     # plot_total_capacity_costs(obj_fname)
     # plot_costs_contrib(obj_fname)
     # networkfname='Stats/Euclid/Model_Stats_G17_M2_1.xlsx'
     # network_plot(networkfname, 'Hamburg')
-    scale_fname='Stats/NewFormulation/Objectives_Scaled.xlsx'
-    plot_scaled_obj_val(scale_fname, 'Figures/Scalefactor_G17_new.png', 18,1)
-    c_fname='Stats/C30_NF/Objectives_NewFormCoronet30.xlsx'
-    plot_total_capacity_costs_C30(c_fname,'Figures/NetworkCostsC30.png', [1, 31,2],14)
-    #plot_total_capacity_costs_C30(obj_fname, 'Figures/NetworkCostsG17.png',[1, 18,1],7)
-    f_name='Stats/C30_NF/ObjectivesC30_Scaled.xlsx'
-    plot_scaled_obj_val(f_name,'Figures/ScaledNetworkCostsC30.png',31,2)
-
+    #scale_fname='Stats/NewFormulation/Objectives_Scaled.xlsx'
+    scale_fname='Stats/G17_correct/ObjectivesG171204_Scaled.xlsx'
+    plot_scaled_obj_val(scale_fname, 'Figures/Scalefactor_G17_corrected.png', 18,1)
+    #c_fname='Stats/C30_NF/Objectives_NewFormCoronet30.xlsx'
+    c_fname='Stats/C30_corrected/Coronet30/Objectives_NewFormC301204.xlsx'
+   # plot_total_capacity_costs_C30(c_fname,'Figures/NetworkCostsC30_corrected.png', [1, 31,2],0)
+    plot_total_capacity_costs_C30(obj_fname, 'Figures/NetworkCostsG17.png',[1, 18,1],7)
+    #f_name='Stats/C30_NF/ObjectivesC30_Scaled.xlsx'
+    f_name='Stats/C30_NF/C30_Scale/ObjectivesC30_Scaled.xlsx'
+    plot_scaled_obj_val(f_name,'Figures/ScaledNetworkCostsC30_corrected.png',31,2)
+    plot_cc_vs_m(c_fname,'Figures/NetworkCostsC30_cpvsm2.png',[1,11,1])
 
 if __name__ == "__main__":
     main()

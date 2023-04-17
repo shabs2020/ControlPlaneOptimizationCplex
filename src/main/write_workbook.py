@@ -69,6 +69,32 @@ def write_demand_details(book, demand_volume: dict, demand_paths: dict, demand_p
         parent_row_num +=1
     return book
 
+def write_nodepair_paths(book, cc_paths, cc_path_lengths, cc_edges):
+    book.create_sheet("NodePairs")
+    sheet = book["NodePairs"]
+    sheet['A1'] = "No."
+    sheet['B1'] = "Node i"
+    sheet['C1'] = "Node j"
+    sheet['D1'] ="Path Ids"
+    sheet['E1'] = "Paths"
+    sheet['F1'] = "Edges"
+    sheet['G1'] = "Path_lengths"
+    child_row,parent_row=2,2
+    for p in cc_paths:
+        sheet['A'+ str(child_row)] = parent_row +1
+        sheet['B'+ str(child_row)] = p[0]
+        sheet['C'+ str(child_row)] =p[1]
+        for path in cc_paths[p]:
+            sheet['D'+ str(child_row)] = path
+            sheet['E'+  str(child_row)]='-'.join(s for s in cc_paths[p][path])
+            sheet['F'+ str(child_row)]='-'.join(s for s in cc_edges[p][path])
+            sheet['G'+ str(child_row)]=cc_path_lengths[p][path]
+            child_row+=1
+        parent_row +=1
+            
+    return book
+
+
 
 def write_solution(book, dataframe, sheet_name):
     book.create_sheet(sheet_name)
@@ -98,7 +124,7 @@ def write_objective_values(book, obj: dict,kpi1_perf:dict, kpi2_perf:dict):
     sheet['B1'] = "Obj. Value"
     sheet['C1'] = "LinkBW"
     sheet['D1'] = "PathUtils"
-    sheet['E1'] = "NodeCosts"
+
     i = 2
     for val in obj:
         sheet['A' + str(i)] = val
@@ -108,11 +134,25 @@ def write_objective_values(book, obj: dict,kpi1_perf:dict, kpi2_perf:dict):
         else:
             sheet['C' + str(i)] = 0
         if kpi2_perf.get(val) is not None:
-            sheet['D' + str(i)] = kpi2_perf[val][0]
-            sheet['E' + str(i)] = kpi2_perf[val][1]
+            sheet['D' + str(i)] = kpi2_perf[val]
+           # sheet['E' + str(i)] = kpi2_perf[val][1]
         else:
             sheet['D' + str(i)] = 0
         
+        i += 1
+    return book
+def write_multi_objective_values(book, obj: dict):
+    book.create_sheet("Obj_Values")
+    sheet = book["Obj_Values"]
+    sheet['A1'] = "Nodes Num."
+    sheet['B1'] = "LinkBW"
+    sheet['C1'] = "PathUtils"
+
+    i = 2
+    for val in obj:
+        sheet['A' + str(i)] = val
+        sheet['B' + str(i)] = obj[val][0]
+        sheet['C' + str(i)] = obj[val][1]
         i += 1
     return book
 def write_nested_dict(sheet, obj:dict):
