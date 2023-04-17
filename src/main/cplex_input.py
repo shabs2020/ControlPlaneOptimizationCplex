@@ -32,12 +32,15 @@ def create_network_from_csv(csv_file):
     # Rename the columns
     non_zero_cells.columns = ['source', 'dest', 'length']
     for _, row in non_zero_cells.iterrows():
-        graph.add_edge(str({row['source']}),str({row['dest']}), linkDist=str({row['length']}))
+        graph.add_edge(str(row['source']),str(row['dest']), linkDist=float(str(row['length'])))
     # Calculate the control demand for each node
     for n in graph.nodes:
         graph.nodes[n]["demandVolume"] = (
-            1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * graph.degree(n)
+            0.1+0.2 + (0.01 + 0.02 + 0.2 + 0.1) * graph.degree(n)
         )
+    for e in graph.edges:
+        link_cost = 1
+        graph[e[0]][e[1]]["linkCost"] = link_cost
     return graph
 
 def create_network_from_excel(excel_file):
@@ -63,7 +66,7 @@ def create_network_from_excel(excel_file):
 
     for n in graph.nodes:
         graph.nodes[n]["demandVolume"] = (
-            1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * graph.degree(n)
+            0.1+0.2 + (0.01 + 0.02 + 0.2 + 0.1) * graph.degree(n)
         )
     # pos= nx.spring_layout(graph)
     # nx.draw(graph, pos, with_labels=True,node_color='skyblue', node_size=220, font_size=8, font_weight="bold")
@@ -83,8 +86,8 @@ def create_network(node_file, link_file):
             lon=nodes[n][1],
             lat=nodes[n][2],
             pos=(nodes[n][1], nodes[n][2]),
-            num_of_IXPs=nodes[n][3],
-            num_of_DCs=nodes[n][4],
+            # num_of_IXPs=nodes[n][3],
+            # num_of_DCs=nodes[n][4],
             ctraffic=1,
         )
     for e in edges:
@@ -106,7 +109,7 @@ def create_network(node_file, link_file):
 
     for n in graph.nodes:
         graph.nodes[n]["demandVolume"] = (
-            1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * graph.degree(n)
+            0.1+0.2 + (0.01 + 0.02 + 0.2 + 0.1) * graph.degree(n)
         )
     return graph
 
@@ -152,8 +155,8 @@ def find_potential_paths(i:str, edges: dict, network: nx.Graph):
                     )
                 potential_path_edges["p" + str(count)] = path_edges
                 count += 1
-            del path_edges
-            del pairs
+            # del path_edges
+            # del pairs
 
     return potential_paths, potential_path_edges, path_lengths
 

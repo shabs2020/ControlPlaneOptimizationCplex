@@ -312,7 +312,7 @@ def plot_total_capacity_costs_C30(fname, opf_name, x_scale, annot_pos:int):
     plt.yticks(fontsize=14, **hfont)
     plt.xticks(np.arange(x_scale[0], x_scale[1], x_scale[2]),fontsize=14, **hfont)
     plt.xlabel("Number of direct nodes ($m$)", fontsize=22, **hfont)
-    plt.ylabel("Control Network costs [cu]", fontsize=22, **hfont)
+    plt.ylabel("Control network costs [cu]", fontsize=22, **hfont)
     plt.grid(axis = 'y')
     plt.tight_layout()
     plt.savefig(BASE_DIR + "/" + opf_name, format="png", pad_inches=0)
@@ -420,6 +420,7 @@ def main():
     # plot_costs_contrib(obj_fname)
     # networkfname='Stats/Euclid/Model_Stats_G17_M2_1.xlsx'
     # network_plot(networkfname, 'Hamburg')
+
     #scale_fname='Stats/NewFormulation/Objectives_Scaled.xlsx'
     scale_fname='Stats/G17_correct/ObjectivesG171204_Scaled.xlsx'
     plot_scaled_obj_val(scale_fname, 'Figures/Scalefactor_G17_corrected.png', 18,1)
@@ -431,6 +432,7 @@ def main():
     f_name='Stats/C30_NF/C30_Scale/ObjectivesC30_Scaled.xlsx'
     plot_scaled_obj_val(f_name,'Figures/ScaledNetworkCostsC30_corrected.png',31,2)
     plot_cc_vs_m(c_fname,'Figures/NetworkCostsC30_cpvsm2.png',[1,11,1])
+
 
 if __name__ == "__main__":
     main()

@@ -20,7 +20,7 @@ import re
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
 
-logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_new_formulation_29.03.txt", level=logging.INFO)
+logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_new_formulation_12.04_g17.txt", level=logging.INFO)
 
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
@@ -268,16 +268,23 @@ def run_optimiser(
     kpi2_perf = {}
     total_episodes = len(network.nodes)
     print(total_episodes)
-    for m in range(2, total_episodes + 1):
-        if m == total_episodes:
-            orig_capacity = [
-                network.nodes[n]["demandVolume"] * scale_factor for n in network_nodes
-            ]
-            capacity = [math.ceil(c) for c in orig_capacity]
+    ind_traffic_demand=[network.nodes[n]["demandVolume"] * scale_factor for n in network_nodes]
 
-            print(capacity)
-            control_node_costs = sum(capacity)
-            min_obj_per_M[m] = control_node_costs
+    final_node_costs=math.ceil(sum(ind_traffic_demand))
+    avg_traffic_demand =cplex_input.round_capacity(sum(ind_traffic_demand)/len(network.nodes))
+    for m in range(2, total_episodes + 1):
+
+        
+        if m == total_episodes:
+            # orig_capacity = [
+            #     network.nodes[n]["demandVolume"] * scale_factor for n in network_nodes
+            # ]
+            # capacity = [math.ceil(c) for c in orig_capacity]
+
+            # print(capacity)
+            # control_node_costs = sum(capacity)
+            # min_obj_per_M[m] = control_node_costs
+            control_node_costs = m*final_node_costs
         else:
             capacity = {}
 
@@ -321,12 +328,15 @@ def run_optimiser(
                         d_nodes.append(d[4:])
                 remaining_direct_nodes = list(d_nodes - capacity.keys())
                 for r in remaining_direct_nodes:
-                    capacity[r] = math.ceil(network.nodes[r]["demandVolume"] * scale_factor)
 
+                    capacity[r] = network.nodes[r]["demandVolume"] * scale_factor
+                for r in capacity:
+                    capacity[r]=math.ceil(capacity[r])
+                #total_capacity=[c for c in capacity.values()]
+                #control_node_costs=sum(total_capacity)
 
-                total_capacity=[c for c in capacity.values()]
-                control_node_costs=sum(total_capacity)
                 # print("Capacity per indirect node \n")
+                control_node_costs = m*final_node_costs
                 print(capacity)
                 current_objective_value = sol.get_objective_value() + control_node_costs
                 logging.info(
@@ -357,7 +367,7 @@ def run_optimiser(
                 kpi1_perf[m] = current_kp1
                 kpi2_perf[m] = [current_kp2, control_node_costs]
 
-                fname = r"/Stats/NewFormulation/Model_Stats_NewForm1_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
+                fname = r"/Stats/ICTONG17/Model_Stats_C301204_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
 
                 #'_' + str(scale_factor)+
                 book = wb.create_workbook(BASE_DIR + fname)
@@ -369,7 +379,7 @@ def run_optimiser(
                     demand_path_edges,
                     demand_path_lengths,
                 )
-                book = wb.write_solution(book, variables_in_sol)
+                book = wb.write_solution(book, variables_in_sol, "Solution_Variables")
                 wb.save_book(book, BASE_DIR + fname)
 
             min_obj_per_M[m] = current_objective_value
@@ -431,7 +441,7 @@ def plot_scaled_obj_val(f_name, sheet_name, y_label, img_name):
 
 def run_sol_single():
 
-    obj_record = BASE_DIR + "/Stats/NewFormulation/Objectives_NewFormTest11.xlsx"
+    obj_record = BASE_DIR + "Stats/ICTONG17/Objectives_NewFormG171204.xlsx"
     scale_factor=1
 
     logging.info(
@@ -471,7 +481,7 @@ def run_sol_single():
 
 
 def run_sol_with_scale():
-    obj_record = BASE_DIR + "/Stats/NewFormulation/Objectives_Scaled.xlsx"
+    obj_record = BASE_DIR + "/Stats/ICTONG17/ObjectivesG171204_Scaled.xlsx"
     SCALE_FACTORS = [1, 10, 100, 1000, 5000]
     min_obj_scaled = {}
     kpi_perf_scaled = {}
@@ -558,30 +568,29 @@ if __name__ == "__main__":
             sys.argv.pop(x)
             excel_file = BASE_DIR + "/" + arg
             print("Excel file found")
-        elif arg == "csvfile":
-            sys.argv.pop(x)
-            arg = sys.argv[x]
-            sys.argv.pop(x)
-            csv_file = BASE_DIR + "/" + arg
-            print("Csv file found")
         elif arg == "nodefile":
             sys.argv.pop(x)
             arg = sys.argv[x]
             node_file = BASE_DIR + "/" + arg
             sys.argv.pop(x)
-
         elif arg == "edgefile":
             sys.argv.pop(x)
             arg = sys.argv[x]
             edge_file = BASE_DIR + "/" + arg
             sys.argv.pop(x)
+        # elif arg == "csvfile":
+        #     sys.argv.pop(x)
+        #     arg = sys.argv[x]
+        #     sys.argv.pop(x)
+        #     csv_file = BASE_DIR + "/" + arg
+        #     print("Csv file found")
 
     if excel_file:
         network = cplex_input.create_network_from_excel(excel_file)
         print("Network created")
-    elif csv_file:
-        network = cplex_input.create_network_from_csv(csv_file)
-        print("Network created")
+    # elif csv_file:
+    #     network = cplex_input.create_network_from_csv(csv_file)
+    #     print("Network created")
     elif node_file and edge_file:
         network = cplex_input.create_network(node_file, edge_file)
         print("Network created")
@@ -595,8 +604,8 @@ if __name__ == "__main__":
         links[e] = ["e" + str(i), network.edges[e]["linkCost"]]
         i += 1
     DIVERSITY_FACTOR = 2
-    run_sol_single()
-    # run_sol_with_scale()
+   # run_sol_single()
+    run_sol_with_scale()
 
 
 # run_sol_single()
