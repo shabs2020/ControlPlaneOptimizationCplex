@@ -20,7 +20,7 @@ import re
 file_path = os.path.abspath(os.path.join(__file__, "../.."))
 BASE_DIR = os.path.dirname(file_path)
 
-logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_ictontest.txt", level=logging.INFO)
+logging.basicConfig(filename=BASE_DIR + "/Log/docplexlog_ictonG17.txt", level=logging.INFO)
 
 """ file_path = os.path.abspath(os.path.join(__file__ ,"../.."))
 BASE_DIR = os.path.dirname(file_path)
@@ -474,7 +474,7 @@ def run_optimiser(
                 kpi1_perf[m] = current_kp1
                 kpi2_perf[m] = [current_kp2, control_node_costs]
 
-                fname = r"/Stats/Model_Stats_ICTON_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
+                fname = r"/Stats/ICTONG17/Model_Stats_ICTON_M" + str(m) + '_' + str(scale_factor)+ ".xlsx"
 
                 #'_' + str(scale_factor)+
                 book = wb.create_workbook(BASE_DIR + fname)
@@ -568,7 +568,7 @@ def plot_scaled_obj_val(f_name, sheet_name, y_label, img_name):
 
 def run_sol_single():
 
-    obj_record = BASE_DIR + "/Stats/Objectives_ICTONTEST.xlsx"
+    obj_record = BASE_DIR + "/Stats/ICTONG17/Objectives_ICTONG17.xlsx"
     scale_factor=1
 
     logging.info(

@@ -36,7 +36,7 @@ def create_network_from_csv(csv_file):
     # Calculate the control demand for each node
     for n in graph.nodes:
         graph.nodes[n]["demandVolume"] = (
-            1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * graph.degree(n)
+            0.1+0.2 + (0.01 + 0.02 + 0.2 + 0.1) * graph.degree(n)
         )
     for e in graph.edges:
         link_cost = 1
@@ -66,7 +66,7 @@ def create_network_from_excel(excel_file):
 
     for n in graph.nodes:
         graph.nodes[n]["demandVolume"] = (
-            1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * graph.degree(n)
+            0.1+0.2 + (0.01 + 0.02 + 0.2 + 0.1) * graph.degree(n)
         )
     # pos= nx.spring_layout(graph)
     # nx.draw(graph, pos, with_labels=True,node_color='skyblue', node_size=220, font_size=8, font_weight="bold")
@@ -109,7 +109,7 @@ def create_network(node_file, link_file):
 
     for n in graph.nodes:
         graph.nodes[n]["demandVolume"] = (
-            1.86 + 1.18 + (0.86 + 0.745 + 0.2 + 0.1) * graph.degree(n)
+            0.1+0.2 + (0.01 + 0.02 + 0.2 + 0.1) * graph.degree(n)
         )
     return graph
 
@@ -229,11 +229,7 @@ def find_controller_connections(d_nodes:list, network:nx.Graph, edges:dict):
 def round_capacity(capacity: float):
     rounded_value = 10.0
     if capacity > 10.0 and capacity <= 100.0:
-<<<<<<< HEAD
-        rounded_value = 250.0
-=======
         rounded_value = 100.0
->>>>>>> e5d88053ed292e6692d23c71d1cf73f38fbeb0ed
     elif capacity > 100.0 and capacity <= 250.0:
         rounded_value = 250.0
     elif capacity > 250.0 and capacity <= 500.0:

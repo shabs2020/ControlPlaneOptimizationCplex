@@ -312,7 +312,7 @@ def plot_total_capacity_costs_C30(fname, opf_name, x_scale, annot_pos:int):
     plt.yticks(fontsize=14, **hfont)
     plt.xticks(np.arange(x_scale[0], x_scale[1], x_scale[2]),fontsize=14, **hfont)
     plt.xlabel("Number of direct nodes ($m$)", fontsize=22, **hfont)
-    plt.ylabel("Control Network costs [cu]", fontsize=22, **hfont)
+    plt.ylabel("Control network costs [cu]", fontsize=22, **hfont)
     plt.grid(axis = 'y')
     plt.tight_layout()
     plt.savefig(BASE_DIR + "/" + opf_name, format="png", pad_inches=0)
@@ -330,7 +330,7 @@ def main():
     plot_total_capacity_costs_C30(c_fname,'Figures/NetworkCostsC30.png', [1, 31,2],14)
     #plot_total_capacity_costs_C30(obj_fname, 'Figures/NetworkCostsG17.png',[1, 18,1],7)
     f_name='Stats/C30_NF/ObjectivesC30_Scaled.xlsx'
-    plot_scaled_obj_val(f_name,'Figures/ScaledNetworkCostsC30.png',31,2)
+    #plot_scaled_obj_val(f_name,'Figures/ScaledNetworkCostsC30.png',31,2)
 
 
 if __name__ == "__main__":
